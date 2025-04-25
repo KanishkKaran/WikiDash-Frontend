@@ -5,7 +5,7 @@ import TopEditorsChart from './components/TopEditorsChart'
 import PageviewsChart from './components/PageviewsChart'
 import EditTimelineChart from './components/EditTimelineChart'
 import EditorNetworkGraph from "./components/EditorNetworkGraph"
-import axios from 'axios'
+import api from './utils/api'  // Replace axios with api utility
 
 
 function App() {
@@ -24,16 +24,16 @@ function App() {
       
       try {
         // Fetch article summary + pageviews
-        const articleData = await axios.get(`/api/article?title=${encodeURIComponent(title)}`)
+        const articleData = await api.get(`/api/article?title=${encodeURIComponent(title)}`)
         
         // Fetch edit count
-        const editsData = await axios.get(`/api/edits?title=${encodeURIComponent(title)}`)
+        const editsData = await api.get(`/api/edits?title=${encodeURIComponent(title)}`)
         
         // Fetch editors
-        const editorsData = await axios.get(`/api/editors?title=${encodeURIComponent(title)}`)
+        const editorsData = await api.get(`/api/editors?title=${encodeURIComponent(title)}`)
         
         // Fetch citations
-        const citationsData = await axios.get(`/api/citations?title=${encodeURIComponent(title)}`)
+        const citationsData = await api.get(`/api/citations?title=${encodeURIComponent(title)}`)
         
         // Update metrics with all the data
         setMetrics({

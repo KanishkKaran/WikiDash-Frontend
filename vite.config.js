@@ -5,7 +5,10 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      '/api': 'http://127.0.0.1:5000'
+      '/api': 'https://wikidash-backend.onrender.com' // ✅ use live backend on Render
     }
+  },
+  define: {
+    'process.env': {} // 🔧 optional: avoids issues if env used
   }
 })

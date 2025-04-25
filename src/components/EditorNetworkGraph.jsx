@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import axios from 'axios';
+import api from '../utils/api';  // Replace axios with api utility
 import * as d3 from 'd3';
 
 function EditorNetworkGraph({ title }) {
@@ -16,7 +16,7 @@ function EditorNetworkGraph({ title }) {
       
       try {
         // Get top editors first
-        const editorsResponse = await axios.get(`/api/editors?title=${encodeURIComponent(title)}`);
+        const editorsResponse = await api.get(`/api/editors?title=${encodeURIComponent(title)}`);
         const topEditors = editorsResponse.data.slice(0, 15); // Limit to top 15 for visualization clarity
         
         // Create nodes for each editor

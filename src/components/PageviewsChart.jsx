@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import axios from 'axios'
+import api from '../utils/api'  // Replace axios with api utility
 import { Line } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -31,7 +31,7 @@ function PageviewsChart({ title }) {
       setError(null)
       
       try {
-        const res = await axios.get(`/api/article?title=${encodeURIComponent(title)}`)
+        const res = await api.get(`/api/article?title=${encodeURIComponent(title)}`)
         if (res.data.pageviews && res.data.pageviews.length > 0) {
           setData(res.data.pageviews)
           

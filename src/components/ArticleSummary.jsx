@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import axios from 'axios'
+import api from '../utils/api'  // Replace axios with api utility
 
 function ArticleSummary({ title }) {
   const [summary, setSummary] = useState(null)
@@ -12,7 +12,7 @@ function ArticleSummary({ title }) {
       setError(null)
       
       try {
-        const res = await axios.get(`/api/article?title=${encodeURIComponent(title)}`)
+        const res = await api.get(`/api/article?title=${encodeURIComponent(title)}`)
         setSummary(res.data)
       } catch (err) {
         console.error('Error fetching article summary:', err)

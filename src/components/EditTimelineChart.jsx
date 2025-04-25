@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import axios from 'axios'
+import api from '../utils/api'  // Replace axios with api utility
 import { Line } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -27,7 +27,7 @@ function EditTimelineChart({ title }) {
       setError(null)
       
       try {
-        const res = await axios.get(`/api/edit-timeline?title=${encodeURIComponent(title)}`)
+        const res = await api.get(`/api/edit-timeline?title=${encodeURIComponent(title)}`)
         setData(res.data)
       } catch (err) {
         console.error('Error fetching edit timeline:', err)
