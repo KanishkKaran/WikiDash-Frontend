@@ -26,7 +26,9 @@ function TopEditorsChart({ title }) {
       
       try {
         const res = await api.get(`/api/editors?title=${encodeURIComponent(title)}`)
-        setData(res.data)
+        // Handle both formats: direct array or wrapped in "editors" field
+        const editorsData = Array.isArray(res.data) ? res.data : (res.data.editors || [])
+        setData(editorsData)
       } catch (err) {
         console.error('Error fetching editors data:', err)
         setError('Failed to load editor data')
