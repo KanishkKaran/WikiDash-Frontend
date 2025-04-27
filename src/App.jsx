@@ -5,8 +5,8 @@ import TopEditorsChart from './components/TopEditorsChart'
 import PageviewsChart from './components/PageviewsChart'
 import EditTimelineChart from './components/EditTimelineChart'
 import EditorNetworkGraph from "./components/EditorNetworkGraph"
+import TopRevertersChart from "./components/TopRevertersChart"
 import api from './utils/api'  // Replace axios with api utility
-
 
 function App() {
   const [title, setTitle] = useState('ChatGPT')
@@ -31,6 +31,7 @@ function App() {
         
         // Fetch editors
         const editorsData = await api.get(`/api/editors?title=${encodeURIComponent(title)}`)
+        const editorsArray = Array.isArray(editorsData.data) ? editorsData.data : (editorsData.data.editors || [])
         
         // Fetch citations
         const citationsData = await api.get(`/api/citations?title=${encodeURIComponent(title)}`)
@@ -39,7 +40,7 @@ function App() {
         setMetrics({
           pageviews: articleData.data.pageviews?.reduce((sum, item) => sum + item.views, 0) || 0,
           edits: editsData.data.edit_count || 0,
-          editors: editorsData.data.length || 0,
+          editors: editorsArray.length || 0,
           citations: citationsData.data.total_refs || 0
         })
       } catch (err) {
@@ -174,14 +175,20 @@ function App() {
                 </div>
                 <EditTimelineChart title={title} />
               </div>
-              <div className="bg-white backdrop-blur-lg bg-opacity-90 shadow-xl rounded-xl overflow-hidden lg:col-span-2 border border-slate-100">
+              <div className="bg-white backdrop-blur-lg bg-opacity-90 shadow-xl rounded-xl overflow-hidden border border-slate-100">
                 <div className="border-b border-slate-100 px-6 py-4">
                   <h2 className="text-lg font-semibold text-slate-800">Top Contributors</h2>
                 </div>
                 <TopEditorsChart title={title} />
               </div>
+              <div className="bg-white backdrop-blur-lg bg-opacity-90 shadow-xl rounded-xl overflow-hidden border border-slate-100">
+                <div className="border-b border-slate-100 px-6 py-4">
+                  <h2 className="text-lg font-semibold text-slate-800">Revert Activity</h2>
+                </div>
+                <TopRevertersChart title={title} />
+              </div>
               <div className="bg-white backdrop-blur-lg bg-opacity-90 shadow-xl rounded-xl overflow-hidden lg:col-span-2 border border-slate-100">
-                {/* Added EditorNetworkGraph component here */}
+                {/* EditorNetworkGraph component */}
                 <EditorNetworkGraph title={title} />
               </div>
             </div>
