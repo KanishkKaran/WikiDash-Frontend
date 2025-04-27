@@ -17,7 +17,13 @@ function EditorNetworkGraph({ title }) {
       try {
         // Get top editors first
         const editorsResponse = await api.get(`/api/editors?title=${encodeURIComponent(title)}`);
-        const topEditors = editorsResponse.data.slice(0, 15); // Limit to top 15 for visualization clarity
+        
+        // Extract the editors array - handle both formats (direct array or object with editors field)
+        const editorsData = Array.isArray(editorsResponse.data) 
+          ? editorsResponse.data 
+          : (editorsResponse.data.editors || []);
+        
+        const topEditors = editorsData.slice(0, 15); // Limit to top 15 for visualization clarity
         
         // Create nodes for each editor
         const nodes = topEditors.map(editor => ({
@@ -34,10 +40,10 @@ function EditorNetworkGraph({ title }) {
         // Try to get revert data - but use mock data for demonstration
         // In a production environment, you would use the actual API endpoint
         const mockRevertData = [
-          { reverter: nodes[0].id, reverted: nodes[1].id, count: 3 },
-          { reverter: nodes[2].id, reverted: nodes[3].id, count: 2 },
-          { reverter: nodes[0].id, reverted: nodes[4].id, count: 1 }
-        ];
+          { reverter: nodes[0]?.id, reverted: nodes[1]?.id, count: 3 },
+          { reverter: nodes[2]?.id, reverted: nodes[3]?.id, count: 2 },
+          { reverter: nodes[0]?.id, reverted: nodes[4]?.id, count: 1 }
+        ].filter(d => d.reverter && d.reverted); // Filter out any invalid links
         
         // Process revert relationships
         mockRevertData.forEach(revert => {
@@ -51,10 +57,10 @@ function EditorNetworkGraph({ title }) {
         
         // Add some collaboration links for variety
         const mockCollabData = [
-          { editor1: nodes[5].id, editor2: nodes[6].id, strength: 0.8 },
-          { editor1: nodes[7].id, editor2: nodes[8].id, strength: 0.7 },
-          { editor1: nodes[0].id, editor2: nodes[9].id, strength: 0.9 }
-        ];
+          { editor1: nodes[5]?.id, editor2: nodes[6]?.id, strength: 0.8 },
+          { editor1: nodes[7]?.id, editor2: nodes[8]?.id, strength: 0.7 },
+          { editor1: nodes[0]?.id, editor2: nodes[9]?.id, strength: 0.9 }
+        ].filter(d => d.editor1 && d.editor2); // Filter out any invalid links
         
         // Process collaboration relationships
         mockCollabData.forEach(collab => {
