@@ -26,7 +26,9 @@ function TopRevertersChart({ title }) {
       
       try {
         const res = await api.get(`/api/reverters?title=${encodeURIComponent(title)}`);
-        setData(res.data);
+        // Handle both formats: direct array or wrapped in "reverters" field
+        const revertersData = Array.isArray(res.data) ? res.data : (res.data.reverters || []);
+        setData(revertersData);
       } catch (err) {
         console.error('Error fetching revert data:', err);
         setError('Failed to load revert activity data');
