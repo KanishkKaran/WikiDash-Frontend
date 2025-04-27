@@ -28,7 +28,9 @@ function EditTimelineChart({ title }) {
       
       try {
         const res = await api.get(`/api/edit-timeline?title=${encodeURIComponent(title)}`)
-        setData(res.data)
+        // Handle both formats: direct object or wrapped in "timeline" field
+        const timelineData = res.data.timeline || res.data
+        setData(timelineData)
       } catch (err) {
         console.error('Error fetching edit timeline:', err)
         setError('Failed to load edit timeline data')
