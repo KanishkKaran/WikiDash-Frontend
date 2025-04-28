@@ -13,7 +13,21 @@ function ArticleSummary({ title }) {
       
       try {
         const res = await api.get(`/api/article?title=${encodeURIComponent(title)}`)
-        setSummary(res.data)
+        // Handle both the old and new data structure
+        if (res.data.summary && typeof res.data.summary === 'object') {
+          // New structure where summary is an object with nested data
+          setSummary(res.data)
+        } else {
+          // Old structure where summary data is at the top level
+          setSummary({
+            summary: {
+              title: res.data.title || title,
+              summary: res.data.summary || "",
+              url: res.data.url || ""
+            },
+            metadata: res.data.metadata || {}
+          })
+        }
       } catch (err) {
         console.error('Error fetching article summary:', err)
         setError('Failed to load article summary')
@@ -54,7 +68,7 @@ function ArticleSummary({ title }) {
     )
   }
 
-  if (!summary?.summary) {
+  if (!summary || !summary.summary || !summary.summary.summary) {
     return (
       <div className="p-8 text-center">
         <p className="text-slate-600">No information available for this article.</p>
