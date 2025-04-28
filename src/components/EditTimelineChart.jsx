@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import api from '../utils/api'  // Replace axios with api utility
+import api from '../utils/api'
 import { Line } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -15,7 +15,7 @@ import dayjs from 'dayjs'
 
 ChartJS.register(LineElement, PointElement, LinearScale, CategoryScale, Tooltip, Legend, Filler)
 
-function EditTimelineChart({ title }) {
+function EditTimelineChart({ title, editData = [] }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -27,10 +27,27 @@ function EditTimelineChart({ title }) {
       setError(null)
       
       try {
-        const res = await api.get(`/api/edit-timeline?title=${encodeURIComponent(title)}`)
-        // Handle both formats: direct object or wrapped in "timeline" field
-        const timelineData = res.data.timeline || res.data
-        setData(timelineData)
+        // If editData is provided from parent, use it directly
+        if (editData && editData.length > 0) {
+          processEditData(editData)
+          return
+        }
+        
+        // Otherwise fetch from API
+        const res = await api.get(`/api/edits?title=${encodeURIComponent(title)}`)
+        
+        // Use revisions data from the response if available
+        if (res.data && res.data.revisions && res.data.revisions.length > 0) {
+          processEditData(res.data.revisions)
+        } else {
+          // Fallback to timeline data format if available
+          const timelineData = res.data.timeline || res.data
+          if (timelineData && Object.keys(timelineData).length > 0) {
+            setData(timelineData)
+          } else {
+            setError('No edit timeline data available')
+          }
+        }
       } catch (err) {
         console.error('Error fetching edit timeline:', err)
         setError('Failed to load edit timeline data')
@@ -39,8 +56,46 @@ function EditTimelineChart({ title }) {
       }
     }
     
+    // Process revision data into a timeline format
+    const processEditData = (revisions) => {
+      if (!revisions || revisions.length === 0) {
+        setError('No edit activity data available for this article')
+        return
+      }
+      
+      // Group revisions by date
+      const editsPerDay = {}
+      
+      revisions.forEach(revision => {
+        // Process timestamp to get just the date part
+        const timestamp = revision.timestamp || ''
+        let dateStr
+        
+        if (timestamp.includes('T')) {
+          // ISO format: "2023-04-21T08:12:34Z"
+          dateStr = timestamp.split('T')[0]
+        } else if (timestamp.includes(' ')) {
+          // MediaWiki API format: "2023-04-21 08:12:34"
+          dateStr = timestamp.split(' ')[0]
+        } else {
+          // Some other format or just a date
+          dateStr = timestamp
+        }
+        
+        if (!dateStr) return
+        
+        // Count edits per day
+        if (!editsPerDay[dateStr]) {
+          editsPerDay[dateStr] = 0
+        }
+        editsPerDay[dateStr]++
+      })
+      
+      setData(editsPerDay)
+    }
+    
     fetchEditTimeline()
-  }, [title])
+  }, [title, editData])
 
   const filterDataByTimeRange = (data) => {
     if (!data || Object.keys(data).length === 0) return { labels: [], values: [] }
