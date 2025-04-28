@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import api from '../utils/api'  // Replace axios with api utility
+import api from '../utils/api'
 
 function ArticleSummary({ title }) {
-  const [summaryData, setSummaryData] = useState(null)
+  const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -13,8 +13,8 @@ function ArticleSummary({ title }) {
       
       try {
         const res = await api.get(`/api/article?title=${encodeURIComponent(title)}`)
-        console.log("API Response:", res.data) // Debug log
-        setSummaryData(res.data)
+        console.log("API Response:", JSON.stringify(res.data, null, 2)) // Detailed debug
+        setData(res.data)
       } catch (err) {
         console.error('Error fetching article summary:', err)
         setError('Failed to load article summary')
@@ -55,7 +55,7 @@ function ArticleSummary({ title }) {
     )
   }
 
-  if (!summaryData || !summaryData.summary) {
+  if (!data) {
     return (
       <div className="p-8 text-center">
         <p className="text-slate-600">No information available for this article.</p>
@@ -63,20 +63,58 @@ function ArticleSummary({ title }) {
     )
   }
 
-  // Extract the necessary data for display
-  const {title: articleTitle, summary: articleSummary, url: articleUrl} = summaryData.summary || {};
+  // Handle possible data structures
+  let articleTitle = "";
+  let articleSummary = "";
+  let articleUrl = "";
+  let createdDate = null;
   
-  // If URL is not available, fall back to Wikipedia URL format
+  // Check if we have direct string properties
+  if (typeof data.title === 'string') {
+    articleTitle = data.title;
+  }
+  
+  if (typeof data.summary === 'string') {
+    articleSummary = data.summary;
+  } else if (data.summary && typeof data.summary === 'object') {
+    // If summary is an object, stringify it
+    console.log("Warning: summary is an object, not a string");
+    try {
+      // First see if it has a summary property
+      if (typeof data.summary.summary === 'string') {
+        articleSummary = data.summary.summary;
+      } else {
+        // Otherwise try to stringify it as a fallback
+        articleSummary = JSON.stringify(data.summary);
+      }
+    } catch (e) {
+      console.error("Error stringifying summary:", e);
+      articleSummary = "Error displaying summary";
+    }
+  }
+  
+  // Handle URL
+  if (typeof data.url === 'string') {
+    articleUrl = data.url;
+  } else if (data.summary && typeof data.summary.url === 'string') {
+    articleUrl = data.summary.url;
+  }
+  
+  // Final URL fallback
   const finalUrl = articleUrl || `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`;
   
-  // Format date nicely if available
-  const createdDate = summaryData.metadata?.created_at 
-    ? new Date(summaryData.metadata.created_at).toLocaleDateString(undefined, {
+  // Safely extract metadata
+  if (data.metadata && data.metadata.created_at) {
+    try {
+      createdDate = new Date(data.metadata.created_at).toLocaleDateString(undefined, {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
-      })
-    : null;
+      });
+    } catch (e) {
+      console.error("Error formatting date:", e);
+    }
+  }
 
   return (
     <div className="p-8">
