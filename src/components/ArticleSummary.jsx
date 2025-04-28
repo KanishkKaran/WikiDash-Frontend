@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import api from '../utils/api'  // Replace axios with api utility
 
 function ArticleSummary({ title }) {
-  const [summary, setSummary] = useState(null)
+  const [summaryData, setSummaryData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -13,21 +13,8 @@ function ArticleSummary({ title }) {
       
       try {
         const res = await api.get(`/api/article?title=${encodeURIComponent(title)}`)
-        // Handle both the old and new data structure
-        if (res.data.summary && typeof res.data.summary === 'object') {
-          // New structure where summary is an object with nested data
-          setSummary(res.data)
-        } else {
-          // Old structure where summary data is at the top level
-          setSummary({
-            summary: {
-              title: res.data.title || title,
-              summary: res.data.summary || "",
-              url: res.data.url || ""
-            },
-            metadata: res.data.metadata || {}
-          })
-        }
+        console.log("API Response:", res.data) // Debug log
+        setSummaryData(res.data)
       } catch (err) {
         console.error('Error fetching article summary:', err)
         setError('Failed to load article summary')
@@ -68,7 +55,7 @@ function ArticleSummary({ title }) {
     )
   }
 
-  if (!summary || !summary.summary || !summary.summary.summary) {
+  if (!summaryData || !summaryData.summary) {
     return (
       <div className="p-8 text-center">
         <p className="text-slate-600">No information available for this article.</p>
@@ -76,23 +63,27 @@ function ArticleSummary({ title }) {
     )
   }
 
-  const articleUrl = summary.summary.url || `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`
+  // Extract the necessary data for display
+  const {title: articleTitle, summary: articleSummary, url: articleUrl} = summaryData.summary || {};
+  
+  // If URL is not available, fall back to Wikipedia URL format
+  const finalUrl = articleUrl || `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`;
   
   // Format date nicely if available
-  const createdDate = summary.metadata?.created_at 
-    ? new Date(summary.metadata.created_at).toLocaleDateString(undefined, {
+  const createdDate = summaryData.metadata?.created_at 
+    ? new Date(summaryData.metadata.created_at).toLocaleDateString(undefined, {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
       })
-    : null
+    : null;
 
   return (
     <div className="p-8">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-        <h2 className="text-2xl md:text-3xl font-bold text-slate-800">{summary.summary.title}</h2>
+        <h2 className="text-2xl md:text-3xl font-bold text-slate-800">{articleTitle}</h2>
         <a 
-          href={articleUrl}
+          href={finalUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-sm font-medium hover:bg-indigo-100 transition-colors group"
@@ -105,7 +96,7 @@ function ArticleSummary({ title }) {
       </div>
       
       <div className="prose max-w-none text-slate-700 leading-relaxed text-lg">
-        <p>{summary.summary.summary}</p>
+        <p>{articleSummary}</p>
       </div>
       
       {createdDate && (
