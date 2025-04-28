@@ -11,23 +11,31 @@ import api from './utils/api'  // Replace axios with api utility
 function App() {
   const [title, setTitle] = useState('ChatGPT')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const [metrics, setMetrics] = useState({
     pageviews: 0,
     edits: 0,
     editors: 0,
     citations: 0
   })
+  const [editData, setEditData] = useState([])
 
   useEffect(() => {
     const fetchAllData = async () => {
       setLoading(true)
+      setError(null)
       
       try {
         // Fetch article summary + pageviews
         const articleData = await api.get(`/api/article?title=${encodeURIComponent(title)}`)
         
-        // Fetch edit count
+        // Fetch edit count and timeline data
         const editsData = await api.get(`/api/edits?title=${encodeURIComponent(title)}`)
+        
+        // Store revision data for timeline
+        if (editsData.data && editsData.data.revisions) {
+          setEditData(editsData.data.revisions)
+        }
         
         // Fetch editors
         const editorsData = await api.get(`/api/editors?title=${encodeURIComponent(title)}`)
@@ -45,6 +53,7 @@ function App() {
         })
       } catch (err) {
         console.error('Error fetching dashboard data:', err)
+        setError('Failed to load data. Please try again later.')
       } finally {
         setLoading(false)
       }
@@ -84,6 +93,12 @@ function App() {
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <SearchBar title={title} onSearch={setTitle} />
+        
+        {error && (
+          <div className="my-8 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
+            <p>{error}</p>
+          </div>
+        )}
         
         {loading ? (
           <div className="flex justify-center my-20">
@@ -173,7 +188,7 @@ function App() {
                 <div className="border-b border-slate-100 px-6 py-4">
                   <h2 className="text-lg font-semibold text-slate-800">Edit Activity</h2>
                 </div>
-                <EditTimelineChart title={title} />
+                <EditTimelineChart title={title} editData={editData} />
               </div>
               <div className="bg-white backdrop-blur-lg bg-opacity-90 shadow-xl rounded-xl overflow-hidden border border-slate-100">
                 <div className="border-b border-slate-100 px-6 py-4">
@@ -188,7 +203,9 @@ function App() {
                 <TopRevertersChart title={title} />
               </div>
               <div className="bg-white backdrop-blur-lg bg-opacity-90 shadow-xl rounded-xl overflow-hidden lg:col-span-2 border border-slate-100">
-                {/* EditorNetworkGraph component */}
+                <div className="border-b border-slate-100 px-6 py-4">
+                  <h2 className="text-lg font-semibold text-slate-800">Editor Network</h2>
+                </div>
                 <EditorNetworkGraph title={title} />
               </div>
             </div>
