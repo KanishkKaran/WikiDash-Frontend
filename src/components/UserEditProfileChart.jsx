@@ -86,8 +86,10 @@ function UserEditProfileChart({ username, title }) {
         
         // Select a random subset of topics (between 3-6)
         const numTopics = Math.floor(Math.random() * 4) + 3;
+        // For deterministic generation for the prototype
+        // In a real implementation, you would fetch real data
         const selectedTopics = [...relatedTopics]
-          .sort(() => 0.5 - Math.random())
+          .sort((a, b) => a.localeCompare(b))
           .slice(0, numTopics);
           
         // Distribute remaining edits with a power law distribution (some articles get more attention)
