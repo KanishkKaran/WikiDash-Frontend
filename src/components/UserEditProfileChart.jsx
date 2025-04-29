@@ -16,7 +16,10 @@ function UserEditProfileChart({ username, title }) {
     // Fetch top editors first if no specific username is provided
     const fetchTopEditors = async () => {
       try {
+        console.log("Fetching top editors for:", title);
         const response = await api.get(`/api/editors?title=${encodeURIComponent(title)}`);
+        console.log("Top editors response:", response.data);
+        
         const editorsData = Array.isArray(response.data) 
           ? response.data 
           : (response.data.editors || []);
@@ -48,12 +51,16 @@ function UserEditProfileChart({ username, title }) {
       setError(null);
       
       try {
+        console.log("Fetching profile for user:", selectedUsername);
+        
         // In a real implementation, we would have an endpoint that returns 
         // all articles edited by a specific user. For this prototype, we'll
         // create mock data based on the current article and username.
         
         // First, get the actual number of edits for this user on current article
         const editorsResponse = await api.get(`/api/editors?title=${encodeURIComponent(title)}`);
+        console.log("Editors data for current article:", editorsResponse.data);
+        
         const editorsData = Array.isArray(editorsResponse.data) 
           ? editorsResponse.data 
           : (editorsResponse.data.editors || []);
@@ -86,6 +93,7 @@ function UserEditProfileChart({ username, title }) {
         
         // Select a random subset of topics (between 3-6)
         const numTopics = Math.floor(Math.random() * 4) + 3;
+        
         // For deterministic generation for the prototype
         // In a real implementation, you would fetch real data
         const selectedTopics = [...relatedTopics]
@@ -103,6 +111,8 @@ function UserEditProfileChart({ username, title }) {
           const editsForTopic = Math.round(remainingEdits * (weights[i] / totalWeight));
           otherArticlesData[topic] = editsForTopic;
         });
+        
+        console.log("Generated article distribution:", otherArticlesData);
         
         // Sort by number of edits
         const sortedData = Object.entries(otherArticlesData)
