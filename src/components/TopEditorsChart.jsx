@@ -25,7 +25,10 @@ function TopEditorsChart({ title, onSelectEditor }) {
       setError(null)
       
       try {
-        const res = await api.get(`/api/editors?title=${encodeURIComponent(title)}`)
+        console.log("Fetching top editors for:", title);
+        const res = await api.get(`/api/editors?title=${encodeURIComponent(title)}`);
+        console.log("API response:", res.data);
+        
         // Handle both formats: direct array or wrapped in "editors" field
         const editorsData = Array.isArray(res.data) ? res.data : (res.data.editors || [])
         setData(editorsData)
