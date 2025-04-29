@@ -12,7 +12,7 @@ import {
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
-function TopEditorsChart({ title }) {
+function TopEditorsChart({ title, onSelectEditor }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -39,6 +39,18 @@ function TopEditorsChart({ title }) {
     
     fetchEditors()
   }, [title])
+
+  // Handle bar click to select an editor
+  const handleBarClick = (event, elements) => {
+    if (!elements.length || !data) return;
+    const clickedBarIndex = elements[0].index;
+    const selectedEditor = data[clickedBarIndex].user;
+    
+    // Call the parent handler with the selected editor
+    if (onSelectEditor && selectedEditor) {
+      onSelectEditor(selectedEditor);
+    }
+  };
 
   if (loading) {
     return (
@@ -145,7 +157,8 @@ function TopEditorsChart({ title }) {
           font: { size: 12 }
         }
       }
-    }
+    },
+    onClick: handleBarClick
   }
 
   // Calculate total edits across all editors (not just top 7)
@@ -165,6 +178,10 @@ function TopEditorsChart({ title }) {
       
       <div className="h-72">
         <Bar data={chartData} options={options} />
+      </div>
+      
+      <div className="text-center mt-3 mb-2">
+        <p className="text-xs text-indigo-600">Click on any bar to see the editor's profile below</p>
       </div>
       
       <div className="mt-4 pt-4 border-t border-gray-100">
