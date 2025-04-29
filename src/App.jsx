@@ -4,8 +4,10 @@ import ArticleSummary from './components/ArticleSummary'
 import TopEditorsChart from './components/TopEditorsChart'
 import PageviewsChart from './components/PageviewsChart'
 import EditTimelineChart from './components/EditTimelineChart'
-import EditorNetworkGraph from "./components/EditorNetworkGraph"
-import TopRevertersChart from "./components/TopRevertersChart"
+import EditorNetworkGraph from './components/EditorNetworkGraph'
+import TopRevertersChart from './components/TopRevertersChart'
+import ControversyScoreChart from './components/ControversyScoreChart'
+import UserEditProfileChart from './components/UserEditProfileChart'
 import api from './utils/api'  // Replace axios with api utility
 
 function App() {
@@ -16,9 +18,11 @@ function App() {
     pageviews: 0,
     edits: 0,
     editors: 0,
-    citations: 0
+    citations: 0,
+    reverts: 0
   })
   const [editData, setEditData] = useState([])
+  const [selectedEditor, setSelectedEditor] = useState('')
 
   useEffect(() => {
     const fetchAllData = async () => {
@@ -41,6 +45,21 @@ function App() {
         const editorsData = await api.get(`/api/editors?title=${encodeURIComponent(title)}`)
         const editorsArray = Array.isArray(editorsData.data) ? editorsData.data : (editorsData.data.editors || [])
         
+        // Fetch reverts data
+        const revertsData = await api.get(`/api/reverters?title=${encodeURIComponent(title)}`)
+        const revertersArray = Array.isArray(revertsData.data) ? 
+          revertsData.data : (revertsData.data.reverters || [])
+        
+        // Calculate total reverts
+        const totalReverts = revertersArray.reduce((sum, item) => sum + (item.reverts || 0), 0)
+        
+        // Set selected editor to top editor if available
+        if (editorsArray.length > 0) {
+          setSelectedEditor(editorsArray[0].user)
+        } else {
+          setSelectedEditor('')
+        }
+        
         // Fetch citations
         const citationsData = await api.get(`/api/citations?title=${encodeURIComponent(title)}`)
         
@@ -49,7 +68,8 @@ function App() {
           pageviews: articleData.data.pageviews?.reduce((sum, item) => sum + item.views, 0) || 0,
           edits: editsData.data.edit_count || 0,
           editors: editorsArray.length || 0,
-          citations: citationsData.data.total_refs || 0
+          citations: citationsData.data.total_refs || 0,
+          reverts: totalReverts || 0
         })
       } catch (err) {
         console.error('Error fetching dashboard data:', err)
@@ -61,6 +81,11 @@ function App() {
     
     fetchAllData()
   }, [title])
+
+  // Handler to update selected editor
+  const handleEditorSelect = (username) => {
+    setSelectedEditor(username);
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
@@ -98,7 +123,10 @@ function App() {
           <div className="my-8 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
             <p>{error}</p>
           </div>
-        )}
+        )
+}
+
+export default App}
         
         {loading ? (
           <div className="flex justify-center my-20">
@@ -110,7 +138,7 @@ function App() {
         ) : (
           <>
             {/* Metrics Overview */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-5 my-10">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-5 my-10">
               <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl shadow-md shadow-indigo-100 p-6 text-white">
                 <div className="flex justify-between items-start">
                   <div>
@@ -156,6 +184,22 @@ function App() {
                 </div>
               </div>
               
+              <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-xl shadow-md shadow-red-100 p-6 text-white">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-red-100 font-medium mb-1">Reverts</p>
+                    <p className="text-3xl font-bold">
+                      {metrics.reverts ? metrics.reverts.toLocaleString() : '—'}
+                    </p>
+                  </div>
+                  <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+              
               <div className="bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl shadow-md shadow-violet-100 p-6 text-white">
                 <div className="flex justify-between items-start">
                   <div>
@@ -194,7 +238,7 @@ function App() {
                 <div className="border-b border-slate-100 px-6 py-4">
                   <h2 className="text-lg font-semibold text-slate-800">Top Contributors</h2>
                 </div>
-                <TopEditorsChart title={title} />
+                <TopEditorsChart title={title} onSelectEditor={handleEditorSelect} />
               </div>
               <div className="bg-white backdrop-blur-lg bg-opacity-90 shadow-xl rounded-xl overflow-hidden border border-slate-100">
                 <div className="border-b border-slate-100 px-6 py-4">
@@ -202,6 +246,23 @@ function App() {
                 </div>
                 <TopRevertersChart title={title} />
               </div>
+              
+              {/* New Controversy Score Chart */}
+              <div className="bg-white backdrop-blur-lg bg-opacity-90 shadow-xl rounded-xl overflow-hidden border border-slate-100">
+                <div className="border-b border-slate-100 px-6 py-4">
+                  <h2 className="text-lg font-semibold text-slate-800">Edit Controversy</h2>
+                </div>
+                <ControversyScoreChart title={title} />
+              </div>
+              
+              {/* New User Edit Profile Chart */}
+              <div className="bg-white backdrop-blur-lg bg-opacity-90 shadow-xl rounded-xl overflow-hidden border border-slate-100">
+                <div className="border-b border-slate-100 px-6 py-4">
+                  <h2 className="text-lg font-semibold text-slate-800">Editor Profile</h2>
+                </div>
+                <UserEditProfileChart username={selectedEditor} title={title} />
+              </div>
+              
               <div className="bg-white backdrop-blur-lg bg-opacity-90 shadow-xl rounded-xl overflow-hidden lg:col-span-2 border border-slate-100">
                 <div className="border-b border-slate-100 px-6 py-4">
                   <h2 className="text-lg font-semibold text-slate-800">Editor Network</h2>
@@ -241,6 +302,3 @@ function App() {
       </footer>
     </div>
   )
-}
-
-export default App
