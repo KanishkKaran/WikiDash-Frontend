@@ -32,9 +32,11 @@ function App() {
       try {
         // Fetch article summary + pageviews
         const articleData = await api.get(`/api/article?title=${encodeURIComponent(title)}`)
+        console.log("Article data:", articleData.data);
         
         // Fetch edit count and timeline data
         const editsData = await api.get(`/api/edits?title=${encodeURIComponent(title)}`)
+        console.log("Edits data:", editsData.data);
         
         // Store revision data for timeline
         if (editsData.data && editsData.data.revisions) {
@@ -43,10 +45,12 @@ function App() {
         
         // Fetch editors
         const editorsData = await api.get(`/api/editors?title=${encodeURIComponent(title)}`)
+        console.log("Editors data:", editorsData.data);
         const editorsArray = Array.isArray(editorsData.data) ? editorsData.data : (editorsData.data.editors || [])
         
         // Fetch reverts data
         const revertsData = await api.get(`/api/reverters?title=${encodeURIComponent(title)}`)
+        console.log("Reverters data:", revertsData.data);
         const revertersArray = Array.isArray(revertsData.data) ? 
           revertsData.data : (revertsData.data.reverters || [])
         
@@ -62,6 +66,7 @@ function App() {
         
         // Fetch citations
         const citationsData = await api.get(`/api/citations?title=${encodeURIComponent(title)}`)
+        console.log("Citations data:", citationsData.data);
         
         // Update metrics with all the data
         setMetrics({
@@ -84,6 +89,7 @@ function App() {
 
   // Handler to update selected editor
   const handleEditorSelect = (username) => {
+    console.log("Editor selected:", username);
     setSelectedEditor(username);
   }
 
