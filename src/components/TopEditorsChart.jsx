@@ -29,8 +29,12 @@ function TopEditorsChart({ title, onSelectEditor }) {
         const res = await api.get(`/api/editors?title=${encodeURIComponent(title)}`);
         console.log("API response:", res.data);
         
-        // Handle both formats: direct array or wrapped in "editors" field
-        const editorsData = Array.isArray(res.data) ? res.data : (res.data.editors || [])
+        // Fixed: Properly handle API response and extract editors array
+        const editorsData = Array.isArray(res.data) ? 
+          res.data : 
+          (res.data.editors || []);
+        
+        console.log("Processed editors data:", editorsData);
         setData(editorsData)
       } catch (err) {
         console.error('Error fetching editors data:', err)
