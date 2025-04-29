@@ -34,6 +34,10 @@ function RevisionIntensityChart({ title }) {
           api.get(`/api/editors?title=${encodeURIComponent(title)}`)
         ]);
         
+        console.log("Edits Response:", editsResponse.data);
+        console.log("Reverts Response:", revertsResponse.data);
+        console.log("Editors Response:", editorsResponse.data);
+        
         // Extract the edit timelines and reverter data
         const editTimeline = editsResponse.data.timeline || {};
         const revertTimeline = revertsResponse.data.reverts || {};
