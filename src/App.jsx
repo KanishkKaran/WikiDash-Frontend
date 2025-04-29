@@ -123,10 +123,7 @@ function App() {
           <div className="my-8 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">
             <p>{error}</p>
           </div>
-        )
-}
-
-export default App}
+        )}
         
         {loading ? (
           <div className="flex justify-center my-20">
@@ -302,4 +299,6 @@ export default App}
       </footer>
     </div>
   )
-  export default App
+}
+
+export default App
