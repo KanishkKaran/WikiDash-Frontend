@@ -6,7 +6,7 @@ import PageviewsChart from './components/PageviewsChart'
 import EditTimelineChart from './components/EditTimelineChart'
 import EditorNetworkGraph from './components/EditorNetworkGraph'
 import TopRevertersChart from './components/TopRevertersChart'
-import ControversyScoreChart from './components/ControversyScoreChart'
+import RevisionIntensityChart from './components/RevisionIntensityChart'
 import UserEditProfileChart from './components/UserEditProfileChart'
 import api from './utils/api'  // Replace axios with api utility
 
@@ -247,12 +247,12 @@ export default App}
                 <TopRevertersChart title={title} />
               </div>
               
-              {/* New Controversy Score Chart */}
+              {/* New Revision Intensity Chart */}
               <div className="bg-white backdrop-blur-lg bg-opacity-90 shadow-xl rounded-xl overflow-hidden border border-slate-100">
                 <div className="border-b border-slate-100 px-6 py-4">
-                  <h2 className="text-lg font-semibold text-slate-800">Edit Controversy</h2>
+                  <h2 className="text-lg font-semibold text-slate-800">Revision Intensity</h2>
                 </div>
-                <ControversyScoreChart title={title} />
+                <RevisionIntensityChart title={title} />
               </div>
               
               {/* New User Edit Profile Chart */}
