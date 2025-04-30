@@ -27,20 +27,62 @@ function RevisionIntensityChart({ title }) {
       setError(null);
       
       try {
+        console.log("Fetching revision intensity data for:", title);
+        
         // We'll need data from several endpoints to calculate revision intensity
-        const [editsResponse, revertsResponse, editorsResponse] = await Promise.all([
+        const [editsResponse, revertsResponse] = await Promise.all([
           api.get(`/api/edits?title=${encodeURIComponent(title)}`),
-          api.get(`/api/reverts?title=${encodeURIComponent(title)}`),
-          api.get(`/api/editors?title=${encodeURIComponent(title)}`)
+          api.get(`/api/reverts?title=${encodeURIComponent(title)}`)
         ]);
         
         console.log("Edits Response:", editsResponse.data);
         console.log("Reverts Response:", revertsResponse.data);
-        console.log("Editors Response:", editorsResponse.data);
         
-        // Extract the edit timelines and reverter data
-        const editTimeline = editsResponse.data.timeline || {};
-        const revertTimeline = revertsResponse.data.reverts || {};
+        // Extract the edit timelines and reverter data - handle different possible formats
+        let editTimeline = {};
+        if (editsResponse.data && typeof editsResponse.data === 'object') {
+          if (editsResponse.data.timeline) {
+            editTimeline = editsResponse.data.timeline;
+          } else if (editsResponse.data.revisions && Array.isArray(editsResponse.data.revisions)) {
+            // Process revisions into a timeline if direct timeline not available
+            editsResponse.data.revisions.forEach(rev => {
+              if (rev.timestamp) {
+                const dateStr = rev.timestamp.split('T')[0];
+                editTimeline[dateStr] = (editTimeline[dateStr] || 0) + 1;
+              }
+            });
+          }
+        }
+        console.log("Processed edit timeline:", editTimeline);
+        
+        // Extract revert timeline, handling different formats
+        let revertTimeline = {};
+        if (revertsResponse.data && typeof revertsResponse.data === 'object') {
+          if (revertsResponse.data.reverts) {
+            revertTimeline = revertsResponse.data.reverts;
+          } else if (revertsResponse.data.reverters && Array.isArray(revertsResponse.data.reverters)) {
+            // Process from reverters data if direct timeline not available
+            // This is a fallback and not as accurate
+            const totalReverts = revertsResponse.data.reverters.reduce((sum, item) => sum + (item.reverts || 0), 0);
+            const dates = Object.keys(editTimeline);
+            if (dates.length > 0) {
+              // Distribute reverts proportionally to edit activity as fallback
+              dates.forEach(date => {
+                const editProportion = editTimeline[date] / Object.values(editTimeline).reduce((a, b) => a + b, 0);
+                revertTimeline[date] = Math.round(totalReverts * editProportion);
+              });
+            }
+          }
+        }
+        console.log("Processed revert timeline:", revertTimeline);
+        
+        // Check if we have data to work with
+        if (Object.keys(editTimeline).length === 0) {
+          console.log("No edit timeline data available");
+          setError("No edit activity data available for this article");
+          setLoading(false);
+          return;
+        }
         
         // Combine dates from both datasets
         const allDates = [...new Set([
@@ -49,16 +91,14 @@ function RevisionIntensityChart({ title }) {
         ])].sort();
         
         // Calculate revision intensity scores
-        // Score formula: (reverts / edits) * log(editors) to show revision intensity
         const intensityData = {};
         
-        // Get 30-day moving windows for analysis
         allDates.forEach(date => {
           // Default values
           const edits = editTimeline[date] || 0;
           const reverts = revertTimeline[date] || 0;
           
-          // Simple revision intensity score: ratio of reverts to edits, scaled
+          // Simple revision intensity score calculation
           let score = 0;
           if (edits > 0) {
             // Calculate ratio and apply some scaling
@@ -72,6 +112,7 @@ function RevisionIntensityChart({ title }) {
           intensityData[date] = score;
         });
         
+        console.log("Calculated intensity data:", intensityData);
         setData(intensityData);
       } catch (err) {
         console.error('Error fetching revision intensity data:', err);
@@ -142,6 +183,21 @@ function RevisionIntensityChart({ title }) {
   }
 
   const { labels, values } = filterDataByTimeRange(data);
+
+  // Handle the case of empty filtered data
+  if (labels.length === 0 || values.length === 0) {
+    return (
+      <div className="p-6">
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">Revision Intensity</h2>
+        <div className="flex flex-col items-center justify-center text-gray-500 py-6">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 mb-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p>No revision data available for the selected time range</p>
+        </div>
+      </div>
+    );
+  }
 
   // Calculate statistics
   const maxScore = Math.max(...values);
