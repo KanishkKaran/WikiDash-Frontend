@@ -29,13 +29,23 @@ function TopEditorsChart({ title, onSelectEditor }) {
         const res = await api.get(`/api/editors?title=${encodeURIComponent(title)}`);
         console.log("API response:", res.data);
         
-        // Fixed: Properly handle API response and extract editors array
-        const editorsData = Array.isArray(res.data) ? 
-          res.data : 
-          (res.data.editors || []);
+        // Improved handling for different API response formats
+        let editorsData = [];
+        if (Array.isArray(res.data)) {
+          editorsData = res.data;
+        } else if (res.data && typeof res.data === 'object') {
+          if (Array.isArray(res.data.editors)) {
+            editorsData = res.data.editors;
+          } else if (res.data.error) {
+            throw new Error(res.data.error);
+          }
+        }
         
         console.log("Processed editors data:", editorsData);
-        setData(editorsData)
+        if (editorsData.length === 0) {
+          console.log("No editors data found");
+        }
+        setData(editorsData);
       } catch (err) {
         console.error('Error fetching editors data:', err)
         setError('Failed to load editor data')
@@ -139,7 +149,11 @@ function TopEditorsChart({ title, onSelectEditor }) {
           size: 13
         },
         callbacks: {
-          label: ctx => `${ctx.raw} edits (${((ctx.raw / topEditors.reduce((sum, editor) => sum + editor.edits, 0)) * 100).toFixed(1)}%)`
+          label: ctx => {
+            const totalEdits = topEditors.reduce((sum, editor) => sum + editor.edits, 0);
+            const percentage = totalEdits > 0 ? ((ctx.raw / totalEdits) * 100).toFixed(1) : '0.0';
+            return `${ctx.raw} edits (${percentage}%)`;
+          }
         }
       }
     },
@@ -172,7 +186,8 @@ function TopEditorsChart({ title, onSelectEditor }) {
   const totalEdits = data.reduce((sum, editor) => sum + editor.edits, 0)
   
   // Calculate percentage of edits made by top editors
-  const topEditorsContribution = (topEditors.reduce((sum, editor) => sum + editor.edits, 0) / totalEdits) * 100
+  const topEditorsContribution = totalEdits > 0 ? 
+    (topEditors.reduce((sum, editor) => sum + editor.edits, 0) / totalEdits) * 100 : 0
   
   return (
     <div className="p-6">
