@@ -54,7 +54,6 @@ function UserEditProfileChart({ username, title }) {
         console.log("Fetching profile for user:", selectedUsername);
         
         // Fetch the actual editor's contributions from the API
-        // This endpoint should return all articles edited by this user with edit counts
         const userContribsResponse = await api.get(`/api/user/${encodeURIComponent(selectedUsername)}/contributions`);
         console.log("User contributions:", userContribsResponse.data);
         
