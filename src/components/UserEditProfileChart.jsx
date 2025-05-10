@@ -53,79 +53,45 @@ function UserEditProfileChart({ username, title }) {
       try {
         console.log("Fetching profile for user:", selectedUsername);
         
-        // In a real implementation, we would have an endpoint that returns 
-        // all articles edited by a specific user. For this prototype, we'll
-        // create mock data based on the current article and username.
+        // Fetch the actual editor's contributions from the API
+        // This endpoint should return all articles edited by this user with edit counts
+        const userContribsResponse = await api.get(`/api/user/${encodeURIComponent(selectedUsername)}/contributions`);
+        console.log("User contributions:", userContribsResponse.data);
         
-        // First, get the actual number of edits for this user on current article
-        const editorsResponse = await api.get(`/api/editors?title=${encodeURIComponent(title)}`);
-        console.log("Editors data for current article:", editorsResponse.data);
-        
-        const editorsData = Array.isArray(editorsResponse.data) 
-          ? editorsResponse.data 
-          : (editorsResponse.data.editors || []);
-        
-        const currentUserData = editorsData.find(editor => editor.user === selectedUsername);
-        const editsOnCurrentArticle = currentUserData ? currentUserData.edits : 0;
-        
-        // For the prototype, we'll generate mock data for other article contributions
-        // In a production environment, you would fetch this from a real API endpoint
-        const relatedTopics = [
-          "Artificial intelligence",
-          "Natural language processing", 
-          "Machine learning",
-          "Neural networks",
-          "Computational linguistics",
-          "Transformer models",
-          "Deep learning",
-          "Reinforcement learning"
-        ];
-        
-        // Generate a realistic distribution of edits across articles
-        const totalEditsMock = editsOnCurrentArticle * (2 + Math.random() * 3); // Between 2-5x current article edits
-        const otherArticlesData = {};
-        
-        // Add current article
-        otherArticlesData[title] = editsOnCurrentArticle;
-        
-        // Distribute remaining edits among other topics
-        let remainingEdits = totalEditsMock - editsOnCurrentArticle;
-        
-        // Select a random subset of topics (between 3-6)
-        const numTopics = Math.floor(Math.random() * 4) + 3;
-        
-        // For deterministic generation for the prototype
-        // In a real implementation, you would fetch real data
-        const selectedTopics = [...relatedTopics]
-          .sort((a, b) => a.localeCompare(b))
-          .slice(0, numTopics);
-          
-        // Distribute remaining edits with a power law distribution (some articles get more attention)
-        const weights = [];
-        for (let i = 0; i < numTopics; i++) {
-          weights.push(1 / (i + 1)); // Decreasing weights
+        // Process the real data from the API
+        if (!userContribsResponse.data || !Array.isArray(userContribsResponse.data.contributions)) {
+          throw new Error('Invalid response format from API');
         }
-        const totalWeight = weights.reduce((sum, w) => sum + w, 0);
         
-        selectedTopics.forEach((topic, i) => {
-          const editsForTopic = Math.round(remainingEdits * (weights[i] / totalWeight));
-          otherArticlesData[topic] = editsForTopic;
-        });
+        const contributions = userContribsResponse.data.contributions;
         
-        console.log("Generated article distribution:", otherArticlesData);
+        // Sort contributions by edit count (descending)
+        const sortedContributions = [...contributions].sort((a, b) => b.edits - a.edits);
         
-        // Sort by number of edits
-        const sortedData = Object.entries(otherArticlesData)
-          .sort((a, b) => b[1] - a[1]);
-          
+        // Take top 8 articles for better visualization (if more exist)
+        const topContributions = sortedContributions.slice(0, 8);
+        
+        // If we have more than 8 articles, create an "Other" category for the rest
+        if (sortedContributions.length > 8) {
+          const otherEdits = sortedContributions.slice(8).reduce((sum, article) => sum + article.edits, 0);
+          if (otherEdits > 0) {
+            topContributions.push({ title: "Other articles", edits: otherEdits });
+          }
+        }
+        
+        // Calculate total edits across all articles
+        const totalEdits = sortedContributions.reduce((sum, article) => sum + article.edits, 0);
+        
         setData({
-          articles: sortedData.map(([name]) => name),
-          edits: sortedData.map(([, count]) => count),
-          total: Object.values(otherArticlesData).reduce((sum, count) => sum + count, 0)
+          articles: topContributions.map(article => article.title),
+          edits: topContributions.map(article => article.edits),
+          total: totalEdits,
+          articleCount: sortedContributions.length
         });
+        
       } catch (err) {
-        console.error('Error generating user edit profile:', err);
-        setError('Failed to load user edit profile');
+        console.error('Error fetching user edit profile:', err);
+        setError('Failed to load user edit profile. Please ensure the API is configured correctly.');
       } finally {
         setLoading(false);
       }
@@ -185,23 +151,30 @@ function UserEditProfileChart({ username, title }) {
     );
   }
 
-  // Prepare chart data
+  // Prepare chart data with real colors that map consistently to categories
+  // This ensures similar topics always get the same color
+  const getColorForTopic = (topic) => {
+    const topicLower = topic.toLowerCase();
+    if (topicLower.includes('artificial intelligence') || topicLower.includes('ai')) return '#3B82F6';
+    if (topicLower.includes('machine learning')) return '#EC4899';
+    if (topicLower.includes('deep learning')) return '#6366F1';
+    if (topicLower.includes('natural language') || topicLower.includes('nlp')) return '#8B5CF6';
+    if (topicLower.includes('computational linguistics')) return '#F59E0B';
+    if (topicLower.includes('india') || topicLower.includes('pakistan')) return '#10B981';
+    if (topicLower.includes('other')) return '#9CA3AF';
+    
+    // Generate deterministic color based on string hash
+    const hash = topic.split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 4096, 0);
+    const hue = hash % 360;
+    return `hsl(${hue}, 70%, 60%)`;
+  };
+
   const chartData = {
     labels: data.articles,
     datasets: [
       {
         data: data.edits,
-        backgroundColor: [
-          '#3B82F6', // Blue
-          '#10B981', // Green
-          '#F59E0B', // Amber
-          '#6366F1', // Indigo
-          '#EC4899', // Pink
-          '#8B5CF6', // Purple
-          '#F97316', // Orange
-          '#06B6D4', // Cyan
-          '#9CA3AF'  // Gray
-        ],
+        backgroundColor: data.articles.map(getColorForTopic),
         borderColor: '#ffffff',
         borderWidth: 2,
         hoverOffset: 5
@@ -245,9 +218,6 @@ function UserEditProfileChart({ username, title }) {
     cutout: '40%'
   };
 
-  // Calculate number of articles edited
-  const articleCount = data.articles.length;
-  
   // Calculate how diverse the edit profile is
   // Using normalized entropy of edit distribution
   const calculateDiversity = () => {
@@ -312,7 +282,7 @@ function UserEditProfileChart({ username, title }) {
             <div className="bg-gray-50 rounded-lg p-4">
               <p className="text-xs text-gray-500">Articles Edited</p>
               <p className="text-lg font-bold text-gray-800">
-                {articleCount}
+                {data.articleCount || data.articles.length}
               </p>
             </div>
             <div className="bg-gray-50 rounded-lg p-4">
@@ -335,15 +305,13 @@ function UserEditProfileChart({ username, title }) {
       </div>
       
       <div className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-500">
-        This analysis shows the distribution of edits across different Wikipedia articles for this editor.
+        This analysis shows the actual distribution of edits across different Wikipedia articles for this editor.
         {' '}
         {diversityLevel === 'Very Specialized' || diversityLevel === 'Specialized' ? 
           'This editor tends to focus on a narrow range of topics.' : 
           diversityLevel === 'Balanced' ? 
           'This editor contributes to a moderate range of topics.' :
           'This editor contributes to a wide range of different topics.'}
-        {' '}
-        Note: For this prototype, some data is simulated based on actual editor activity.
       </div>
     </div>
   );
