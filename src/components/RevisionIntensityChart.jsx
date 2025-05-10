@@ -20,6 +20,12 @@ function RevisionIntensityChart({ title }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [timeRange, setTimeRange] = useState('all'); // 'all', 'year', 'month'
+  const [stats, setStats] = useState({
+    intensityLevel: 'Low',
+    hotSpots: 0,
+    maxIntensity: 0,
+    maxDate: null
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -29,94 +35,115 @@ function RevisionIntensityChart({ title }) {
       try {
         console.log("Fetching revision intensity data for:", title);
         
-        // We'll need data from several endpoints to calculate revision intensity
-        const [editsResponse, revertsResponse] = await Promise.all([
-          api.get(`/api/edits?title=${encodeURIComponent(title)}`),
-          api.get(`/api/reverts?title=${encodeURIComponent(title)}`)
-        ]);
+        // Use the dedicated revision intensity endpoint for real data
+        const intensityResponse = await api.get(`/api/revision-intensity?title=${encodeURIComponent(title)}`);
+        console.log("Revision intensity response:", intensityResponse.data);
         
-        console.log("Edits Response:", editsResponse.data);
-        console.log("Reverts Response:", revertsResponse.data);
-        
-        // Extract the edit timelines and reverter data - handle different possible formats
-        let editTimeline = {};
-        if (editsResponse.data && typeof editsResponse.data === 'object') {
-          if (editsResponse.data.timeline) {
-            editTimeline = editsResponse.data.timeline;
-          } else if (editsResponse.data.revisions && Array.isArray(editsResponse.data.revisions)) {
-            // Process revisions into a timeline if direct timeline not available
-            editsResponse.data.revisions.forEach(rev => {
-              if (rev.timestamp) {
-                const dateStr = rev.timestamp.split('T')[0];
-                editTimeline[dateStr] = (editTimeline[dateStr] || 0) + 1;
-              }
-            });
-          }
-        }
-        console.log("Processed edit timeline:", editTimeline);
-        
-        // Extract revert timeline, handling different formats
-        let revertTimeline = {};
-        if (revertsResponse.data && typeof revertsResponse.data === 'object') {
-          if (revertsResponse.data.reverts) {
-            revertTimeline = revertsResponse.data.reverts;
-          } else if (revertsResponse.data.reverters && Array.isArray(revertsResponse.data.reverters)) {
-            // Process from reverters data if direct timeline not available
-            // This is a fallback and not as accurate
-            const totalReverts = revertsResponse.data.reverters.reduce((sum, item) => sum + (item.reverts || 0), 0);
-            const dates = Object.keys(editTimeline);
-            if (dates.length > 0) {
-              // Distribute reverts proportionally to edit activity as fallback
-              dates.forEach(date => {
-                const editProportion = editTimeline[date] / Object.values(editTimeline).reduce((a, b) => a + b, 0);
-                revertTimeline[date] = Math.round(totalReverts * editProportion);
-              });
-            }
-          }
-        }
-        console.log("Processed revert timeline:", revertTimeline);
-        
-        // Check if we have data to work with
-        if (Object.keys(editTimeline).length === 0) {
-          console.log("No edit timeline data available");
-          setError("No edit activity data available for this article");
-          setLoading(false);
-          return;
+        if (!intensityResponse.data || !intensityResponse.data.intensity_data) {
+          throw new Error('Invalid response format from API');
         }
         
-        // Combine dates from both datasets
-        const allDates = [...new Set([
-          ...Object.keys(editTimeline), 
-          ...Object.keys(revertTimeline)
-        ])].sort();
+        // Set the intensity data directly from the API
+        setData(intensityResponse.data.intensity_data);
         
-        // Calculate revision intensity scores
-        const intensityData = {};
-        
-        allDates.forEach(date => {
-          // Default values
-          const edits = editTimeline[date] || 0;
-          const reverts = revertTimeline[date] || 0;
-          
-          // Simple revision intensity score calculation
-          let score = 0;
-          if (edits > 0) {
-            // Calculate ratio and apply some scaling
-            const ratio = reverts / edits;
-            score = ratio * 100; // Scale for visibility
-            
-            // Cap at 100 for visualization purposes
-            score = Math.min(score, 100);
-          }
-          
-          intensityData[date] = score;
+        // Set stats from the API response
+        setStats({
+          intensityLevel: getIntensityLevel(
+            Object.values(intensityResponse.data.intensity_data).reduce((sum, val) => sum + val, 0) / 
+            Math.max(1, Object.values(intensityResponse.data.intensity_data).length)
+          ),
+          hotSpots: intensityResponse.data.hot_spots || 0,
+          maxIntensity: intensityResponse.data.max_intensity || 0,
+          maxDate: intensityResponse.data.max_date || null
         });
         
-        console.log("Calculated intensity data:", intensityData);
-        setData(intensityData);
       } catch (err) {
         console.error('Error fetching revision intensity data:', err);
         setError('Failed to load revision intensity data');
+        
+        // Fallback to calculating intensity from edit and revert data
+        // This only happens if the dedicated endpoint fails
+        try {
+          const [editsResponse, revertsResponse] = await Promise.all([
+            api.get(`/api/edits?title=${encodeURIComponent(title)}`),
+            api.get(`/api/reverts?title=${encodeURIComponent(title)}`)
+          ]);
+          
+          console.log("Fallback - Edits Response:", editsResponse.data);
+          console.log("Fallback - Reverts Response:", revertsResponse.data);
+          
+          // Extract edit timeline
+          let editTimeline = {};
+          if (editsResponse.data && typeof editsResponse.data === 'object') {
+            if (editsResponse.data.timeline) {
+              editTimeline = editsResponse.data.timeline;
+            } else if (editsResponse.data.revisions && Array.isArray(editsResponse.data.revisions)) {
+              editsResponse.data.revisions.forEach(rev => {
+                if (rev.timestamp) {
+                  const dateStr = rev.timestamp.split('T')[0];
+                  editTimeline[dateStr] = (editTimeline[dateStr] || 0) + 1;
+                }
+              });
+            }
+          }
+          
+          // Extract revert timeline
+          let revertTimeline = {};
+          if (revertsResponse.data && typeof revertsResponse.data === 'object') {
+            if (revertsResponse.data.reverts) {
+              revertTimeline = revertsResponse.data.reverts;
+            }
+          }
+          
+          if (Object.keys(editTimeline).length === 0) {
+            throw new Error("No edit timeline data available");
+          }
+          
+          // Combine dates from both datasets
+          const allDates = [...new Set([
+            ...Object.keys(editTimeline), 
+            ...Object.keys(revertTimeline)
+          ])].sort();
+          
+          // Calculate revision intensity scores
+          const intensityData = {};
+          
+          allDates.forEach(date => {
+            const edits = editTimeline[date] || 0;
+            const reverts = revertTimeline[date] || 0;
+            
+            let score = 0;
+            if (edits > 0) {
+              const ratio = reverts / edits;
+              score = ratio * 100; 
+              score = Math.min(score, 100);
+            }
+            
+            intensityData[date] = score;
+          });
+          
+          // Calculate stats
+          const avgScore = Object.values(intensityData).reduce((sum, val) => sum + val, 0) / 
+                          Math.max(1, Object.values(intensityData).length);
+          
+          const maxScore = Math.max(...Object.values(intensityData));
+          const maxScoreDate = Object.entries(intensityData)
+                                .find(([date, score]) => score === maxScore)?.[0];
+          
+          const hotSpots = Object.values(intensityData).filter(val => val > avgScore * 1.5).length;
+          
+          setData(intensityData);
+          setStats({
+            intensityLevel: getIntensityLevel(avgScore),
+            hotSpots: hotSpots,
+            maxIntensity: maxScore,
+            maxDate: maxScoreDate
+          });
+          setError(null);
+        } catch (fallbackErr) {
+          console.error('Error with fallback intensity calculation:', fallbackErr);
+          setError('Failed to load or calculate revision intensity data');
+        }
       } finally {
         setLoading(false);
       }
@@ -146,6 +173,14 @@ function RevisionIntensityChart({ title }) {
     const filteredValues = filteredDates.map(date => data[date]);
     
     return { labels: filteredDates, values: filteredValues };
+  };
+
+  // Get revision intensity level based on average score
+  const getIntensityLevel = (score) => {
+    if (score < 10) return 'Low';
+    if (score < 30) return 'Moderate';
+    if (score < 60) return 'High';
+    return 'Very High';
   };
 
   if (loading) {
@@ -198,14 +233,6 @@ function RevisionIntensityChart({ title }) {
       </div>
     );
   }
-
-  // Calculate statistics
-  const maxScore = Math.max(...values);
-  const maxScoreDate = labels[values.indexOf(maxScore)];
-  const avgScore = values.reduce((sum, val) => sum + val, 0) / values.length;
-  
-  // Detect hot spots (periods of high intensity)
-  const hotSpots = labels.filter((_, i) => values[i] > avgScore * 1.5).length;
 
   const chartData = {
     labels,
@@ -302,16 +329,6 @@ function RevisionIntensityChart({ title }) {
     }
   };
 
-  // Get revision intensity level based on average score
-  const getIntensityLevel = (score) => {
-    if (score < 10) return 'Low';
-    if (score < 30) return 'Moderate';
-    if (score < 60) return 'High';
-    return 'Very High';
-  };
-
-  const intensityLevel = getIntensityLevel(avgScore);
-
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-4">
@@ -354,21 +371,23 @@ function RevisionIntensityChart({ title }) {
         <div className="bg-gray-50 rounded-lg p-3">
           <p className="text-xs text-gray-500">Revision Intensity</p>
           <p className="text-xl font-bold text-gray-800">
-            {intensityLevel}
+            {stats.intensityLevel}
           </p>
         </div>
         <div className="bg-gray-50 rounded-lg p-3">
           <p className="text-xs text-gray-500">Hot Spots</p>
           <p className="text-xl font-bold text-gray-800">
-            {hotSpots}
+            {stats.hotSpots}
           </p>
         </div>
         <div className="bg-gray-50 rounded-lg p-3">
           <p className="text-xs text-gray-500">Peak Intensity</p>
           <p className="text-xl font-bold text-gray-800">
-            {maxScore.toFixed(1)}
+            {stats.maxIntensity.toFixed(1)}
           </p>
-          <p className="text-xs text-gray-500">{new Date(maxScoreDate).toLocaleDateString()}</p>
+          <p className="text-xs text-gray-500">
+            {stats.maxDate ? new Date(stats.maxDate).toLocaleDateString() : ''}
+          </p>
         </div>
       </div>
       
@@ -377,8 +396,7 @@ function RevisionIntensityChart({ title }) {
       </div>
       
       <div className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-500">
-        The revision intensity metric analyzes edit patterns, revert frequency, and editor interactions to measure how actively the article content is evolving. 
-        Higher scores indicate periods of increased editorial activity and content refinement.
+        The revision intensity metric analyzes edit patterns, revert frequency, and editor interactions to measure how actively the article content is evolving. Higher scores indicate periods of increased editorial activity and content refinement.
       </div>
     </div>
   );
