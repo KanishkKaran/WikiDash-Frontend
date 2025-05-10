@@ -78,8 +78,10 @@ function UserEditProfileChart({ username, title }) {
           }
         }
         
-        // Calculate total edits across all articles
-        const totalEdits = sortedContributions.reduce((sum, article) => sum + article.edits, 0);
+        // Get the real total edit count from the API response
+        // This uses the "total_edits" field from the API that gets data directly from Wikipedia
+        const totalEdits = userContribsResponse.data.total_edits || 
+                          sortedContributions.reduce((sum, article) => sum + article.edits, 0);
         
         setData({
           articles: topContributions.map(article => article.title),
