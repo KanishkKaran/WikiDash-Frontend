@@ -120,9 +120,9 @@ function App() {
             <nav>
               <ul className="flex space-x-6 text-sm text-slate-300">
                 <li><a href="/" className="hover:text-white">Home</a></li>
-                <li><a href="/about" className="hover:text-white">About</a></li>
-                <li><a href="/how-to-use" className="hover:text-white">How to Use</a></li>
-                <li><a href="/privacy" className="hover:text-white">Privacy</a></li>
+                <li><a href="/static/about.html" className="hover:text-white">About</a></li>
+                <li><a href="/static/how-to-use.html" className="hover:text-white">How to Use</a></li>
+                <li><a href="/static/privacy.html" className="hover:text-white">Privacy</a></li>
               </ul>
             </nav>
           </div>
