@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
 import SearchBar from './components/SearchBar'
 import ArticleSummary from './components/ArticleSummary'
 import TopEditorsChart from './components/TopEditorsChart'
@@ -10,7 +11,12 @@ import RevisionIntensityChart from './components/RevisionIntensityChart'
 import UserEditProfileChart from './components/UserEditProfileChart'
 import api from './utils/api'  // Replace axios with api utility
 
-function App() {
+// Import page components
+import AboutPage from './pages/AboutPage'
+import HowToUsePage from './pages/HowToUsePage'
+import PrivacyPage from './pages/PrivacyPage'
+
+function Dashboard() {
   const [title, setTitle] = useState('ChatGPT')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -95,33 +101,6 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
-      <header className="bg-slate-900 py-4 shadow-md">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width="28" 
-                height="28" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                className="text-indigo-400 mr-2"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="2" y1="12" x2="22" y2="12" />
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-              </svg>
-              <h1 className="text-2xl font-bold text-white">WikiDash</h1>
-            </div>
-            <span className="text-sm text-slate-300">Visualizing Wikipedia Analytics</span>
-          </div>
-        </div>
-      </header>
-
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
         <SearchBar title={title} onSearch={setTitle} />
         
@@ -276,34 +255,109 @@ function App() {
           </>
         )}
       </main>
-      
-      <footer className="bg-slate-900 text-slate-400 py-8 mt-16">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <div className="flex items-center mb-4 md:mb-0">
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width="20" 
-                height="20" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                className="text-indigo-400 mr-2"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="2" y1="12" x2="22" y2="12" />
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-              </svg>
-              <p className="text-sm">WikiDash</p>
-            </div>
-            <p className="text-xs">Data sourced from Wikipedia API • Created for education and analysis</p>
-          </div>
-        </div>
-      </footer>
     </div>
+  )
+}
+
+function App() {
+  return (
+    <Router>
+      <div className="min-h-screen flex flex-col">
+        <header className="bg-slate-900 py-4 shadow-md">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <Link to="/" className="flex items-center hover:text-indigo-300">
+                  <svg 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    width="28" 
+                    height="28" 
+                    viewBox="0 0 24 24" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    className="text-indigo-400 mr-2"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="2" y1="12" x2="22" y2="12" />
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                  </svg>
+                  <h1 className="text-2xl font-bold text-white">WikiDash</h1>
+                </Link>
+              </div>
+              
+              <div className="hidden md:flex space-x-6 text-slate-300">
+                <Link to="/" className="hover:text-white transition-colors">Dashboard</Link>
+                <Link to="/about" className="hover:text-white transition-colors">About</Link>
+                <Link to="/how-to-use" className="hover:text-white transition-colors">How to Use</Link>
+                <Link to="/privacy" className="hover:text-white transition-colors">Privacy</Link>
+              </div>
+              
+              <div className="md:hidden">
+                <button className="text-slate-300 hover:text-white focus:outline-none">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            
+            {/* Mobile menu - can be expanded upon later */}
+            <div className="md:hidden hidden mt-4 pb-3 border-t border-slate-700">
+              <div className="flex flex-col space-y-3 mt-3">
+                <Link to="/" className="text-slate-300 hover:text-white">Dashboard</Link>
+                <Link to="/about" className="text-slate-300 hover:text-white">About</Link>
+                <Link to="/how-to-use" className="text-slate-300 hover:text-white">How to Use</Link>
+                <Link to="/privacy" className="text-slate-300 hover:text-white">Privacy</Link>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div className="flex-grow">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/how-to-use" element={<HowToUsePage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+          </Routes>
+        </div>
+        
+        <footer className="bg-slate-900 text-slate-400 py-8">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col md:flex-row justify-between items-center">
+              <div className="flex items-center mb-4 md:mb-0">
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  width="20" 
+                  height="20" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  className="text-indigo-400 mr-2"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="2" y1="12" x2="22" y2="12" />
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                </svg>
+                <p className="text-sm">WikiDash</p>
+              </div>
+              <div className="flex space-x-6">
+                <Link to="/about" className="text-sm text-slate-400 hover:text-white transition-colors">About</Link>
+                <Link to="/how-to-use" className="text-sm text-slate-400 hover:text-white transition-colors">How to Use</Link>
+                <Link to="/privacy" className="text-sm text-slate-400 hover:text-white transition-colors">Privacy</Link>
+              </div>
+              <p className="text-xs mt-4 md:mt-0">Data sourced from Wikipedia API • Created for education and analysis</p>
+            </div>
+          </div>
+        </footer>
+      </div>
+    </Router>
   )
 }
 
