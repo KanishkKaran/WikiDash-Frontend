@@ -11,7 +11,7 @@ import RevisionIntensityChart from './components/RevisionIntensityChart'
 import UserEditProfileChart from './components/UserEditProfileChart'
 import api from './utils/api'  // Replace axios with api utility
 
-// Import or create these pages for the static content
+// Import React component pages instead of HTML files
 import AboutPage from './pages/AboutPage'
 import HowToUsePage from './pages/HowToUsePage'
 import PrivacyPage from './pages/PrivacyPage'
