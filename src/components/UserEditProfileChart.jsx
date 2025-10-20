@@ -7,6 +7,7 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 
 function UserEditProfileChart({ username, title, selectedEditor, onEditorSelect, topEditors = [] }) {
   const [data, setData] = useState(null);
+  const [riskData, setRiskData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentUsername, setCurrentUsername] = useState(username || selectedEditor);
@@ -60,31 +61,31 @@ function UserEditProfileChart({ username, title, selectedEditor, onEditorSelect,
       return;
     }
     
-    const fetchUserEditProfile = async () => {
+    const fetchUserData = async () => {
       setLoading(true);
       setError(null);
       
       try {
         console.log("Fetching profile for user:", currentUsername);
         
-        // Fetch the actual editor's contributions from the API
-        const userContribsResponse = await api.get(`/api/user/${encodeURIComponent(currentUsername)}/contributions`);
-        console.log("User contributions:", userContribsResponse.data);
+        // Fetch both contributions and risk assessment
+        const [userContribsResponse, riskResponse] = await Promise.all([
+          api.get(`/api/user/${encodeURIComponent(currentUsername)}/contributions`),
+          api.get(`/api/user/${encodeURIComponent(currentUsername)}/risk-assessment?title=${encodeURIComponent(title)}`)
+        ]);
         
-        // Process the real data from the API
+        console.log("User contributions:", userContribsResponse.data);
+        console.log("Risk assessment:", riskResponse.data);
+        
+        // Process contributions data
         if (!userContribsResponse.data || !Array.isArray(userContribsResponse.data.contributions)) {
           throw new Error('Invalid response format from API');
         }
         
         const contributions = userContribsResponse.data.contributions;
-        
-        // Sort contributions by edit count (descending)
         const sortedContributions = [...contributions].sort((a, b) => b.edits - a.edits);
-        
-        // Take top 8 articles for better visualization (if more exist)
         const topContributions = sortedContributions.slice(0, 8);
         
-        // If we have more than 8 articles, create an "Other" category for the rest
         if (sortedContributions.length > 8) {
           const otherEdits = sortedContributions.slice(8).reduce((sum, article) => sum + article.edits, 0);
           if (otherEdits > 0) {
@@ -92,8 +93,6 @@ function UserEditProfileChart({ username, title, selectedEditor, onEditorSelect,
           }
         }
         
-        // Get the real total edit count from the API response
-        // This uses the "total_edits" field from the API that gets data directly from Wikipedia
         const totalEdits = userContribsResponse.data.total_edits || 
                           sortedContributions.reduce((sum, article) => sum + article.edits, 0);
         
@@ -103,16 +102,19 @@ function UserEditProfileChart({ username, title, selectedEditor, onEditorSelect,
           total: totalEdits,
           articleCount: sortedContributions.length
         });
+
+        // Set risk assessment data
+        setRiskData(riskResponse.data);
         
       } catch (err) {
-        console.error('Error fetching user edit profile:', err);
-        setError('Failed to load user edit profile. Please ensure the API is configured correctly.');
+        console.error('Error fetching user data:', err);
+        setError('Failed to load user data. Please ensure the API is configured correctly.');
       } finally {
         setLoading(false);
       }
     };
     
-    fetchUserEditProfile();
+    fetchUserData();
   }, [currentUsername, title]);
 
   const handleEditorChange = (selectedUser) => {
@@ -120,6 +122,12 @@ function UserEditProfileChart({ username, title, selectedEditor, onEditorSelect,
     if (onEditorSelect) {
       onEditorSelect(selectedUser);
     }
+  };
+
+  const getRiskLevel = (risk) => {
+    if (risk >= 70) return { level: 'High', color: 'text-red-600 bg-red-50' };
+    if (risk >= 40) return { level: 'Medium', color: 'text-amber-600 bg-amber-50' };
+    return { level: 'Low', color: 'text-green-600 bg-green-50' };
   };
 
   if (loading) {
@@ -173,8 +181,7 @@ function UserEditProfileChart({ username, title, selectedEditor, onEditorSelect,
     );
   }
 
-  // Prepare chart data with real colors that map consistently to categories
-  // This ensures similar topics always get the same color
+  // Prepare chart data
   const getColorForTopic = (topic) => {
     const topicLower = topic.toLowerCase();
     if (topicLower.includes('artificial intelligence') || topicLower.includes('ai')) return '#3B82F6';
@@ -185,7 +192,6 @@ function UserEditProfileChart({ username, title, selectedEditor, onEditorSelect,
     if (topicLower.includes('india') || topicLower.includes('pakistan')) return '#10B981';
     if (topicLower.includes('other')) return '#9CA3AF';
     
-    // Generate deterministic color based on string hash
     const hash = topic.split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 4096, 0);
     const hue = hash % 360;
     return `hsl(${hue}, 70%, 60%)`;
@@ -204,7 +210,6 @@ function UserEditProfileChart({ username, title, selectedEditor, onEditorSelect,
     ]
   };
 
-  // Chart options
   const chartOptions = {
     plugins: {
       legend: {
@@ -240,20 +245,17 @@ function UserEditProfileChart({ username, title, selectedEditor, onEditorSelect,
     cutout: '40%'
   };
 
-  // Calculate how diverse the edit profile is
-  // Using normalized entropy of edit distribution
+  // Calculate diversity
   const calculateDiversity = () => {
     const totalEdits = data.edits.reduce((sum, count) => sum + count, 0);
     const probabilities = data.edits.map(count => count / totalEdits);
     const entropy = -probabilities.reduce((sum, p) => sum + (p > 0 ? p * Math.log2(p) : 0), 0);
-    // Normalize by max entropy (uniform distribution)
     const maxEntropy = Math.log2(probabilities.length);
     return maxEntropy > 0 ? entropy / maxEntropy : 0;
   };
   
   const diversity = calculateDiversity();
   
-  // Convert diversity to a descriptive level
   const getDiversityLevel = (score) => {
     if (score < 0.3) return 'Very Specialized';
     if (score < 0.5) return 'Specialized';
@@ -286,8 +288,8 @@ function UserEditProfileChart({ username, title, selectedEditor, onEditorSelect,
         </div>
       </div>
       
-      <div className="flex gap-4 flex-col md:flex-row">
-        <div className="md:w-1/3">
+      <div className="flex gap-4 flex-col lg:flex-row">
+        <div className="lg:w-1/3">
           <div className="grid grid-cols-1 gap-4 h-full">
             <div className="bg-gray-50 rounded-lg p-4">
               <p className="text-xs text-gray-500">Username</p>
@@ -319,10 +321,55 @@ function UserEditProfileChart({ username, title, selectedEditor, onEditorSelect,
                 ></div>
               </div>
             </div>
+
+            {/* Risk Assessment Section */}
+            {riskData && (
+              <>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-xs text-gray-500">Account Age</p>
+                  <p className="text-lg font-bold text-gray-800">
+                    {riskData.accountAge || 'Unknown'}
+                  </p>
+                  {riskData.registrationDate && riskData.registrationDate !== 'Unknown' && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Created {riskData.registrationDate}
+                    </p>
+                  )}
+                </div>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-xs text-gray-500">Risk Level</p>
+                  <div className="flex items-center mt-1">
+                    <span className={`px-2 py-1 rounded text-sm font-medium ${getRiskLevel(riskData.overallRisk).color}`}>
+                      {getRiskLevel(riskData.overallRisk).level} Risk
+                    </span>
+                    <span className="ml-2 text-sm text-gray-600">
+                      ({riskData.overallRisk}/100)
+                    </span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
-        <div className="md:w-2/3 bg-white rounded-lg p-4 relative h-80">
-          <Pie data={chartData} options={chartOptions} />
+        
+        <div className="lg:w-2/3">
+          <div className="bg-white rounded-lg p-4 relative h-80 mb-4">
+            <Pie data={chartData} options={chartOptions} />
+          </div>
+
+          {/* Risk Assessment Details */}
+          {riskData && riskData.alerts && riskData.alerts.length > 0 && (
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-4">
+              <h4 className="font-medium text-slate-800 mb-2">Security Alerts</h4>
+              <div className="space-y-1">
+                {riskData.alerts.map((alert, index) => (
+                  <div key={index} className="text-sm text-slate-600">
+                    • {alert}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
       
