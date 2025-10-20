@@ -154,7 +154,92 @@ const UserAccountAnalysis = ({ title }) => {
     }
   };
 
-="p-0">
+  // Real edit content renderer - shows actual API data
+  const DiffRenderer = ({ edit, editIndex, title }) => {
+    // Debug: Log what we actually have from the API
+    console.log(`Edit data for ${editIndex}:`, edit);
+
+    const renderDiffLine = (line, type) => {
+      const getLineStyle = (type) => {
+        switch (type) {
+          case 'added':
+            return 'bg-green-50 border-l-4 border-green-400';
+          case 'removed':
+            return 'bg-red-50 border-l-4 border-red-400';
+          default:
+            return 'bg-gray-50 border-l-4 border-gray-300';
+        }
+      };
+
+      const getTextStyle = (type) => {
+        switch (type) {
+          case 'added':
+            return 'text-green-800';
+          case 'removed':
+            return 'text-red-800';
+          default:
+            return 'text-gray-700';
+        }
+      };
+
+      const getPrefix = (type) => {
+        switch (type) {
+          case 'added':
+            return '+';
+          case 'removed':
+            return '−';
+          default:
+            return ' ';
+        }
+      };
+
+      return (
+        <div className={`${getLineStyle(type)} px-3 py-2 font-mono text-sm leading-relaxed`}>
+          <span className={`${getTextStyle(type)} select-none mr-3 font-bold w-4 inline-block`}>
+            {getPrefix(type)}
+          </span>
+          <span className={getTextStyle(type)} style={{ wordBreak: 'break-word' }}>
+            {line}
+          </span>
+        </div>
+      );
+    };
+
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-4">
+        {/* Edit Header */}
+        <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium text-gray-900">
+                {edit.revid ? `Revision ${edit.revid}` : `Edit #${editIndex + 1}`}
+              </div>
+              <div className="text-xs text-gray-600 mt-1">
+                {formatTimestamp(edit.timestamp)}
+              </div>
+            </div>
+            <div className="text-right">
+              {edit.size_change && (
+                <div className={`text-sm font-medium ${edit.size_change > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {edit.size_change > 0 ? '+' : ''}{edit.size_change.toLocaleString()} bytes
+                </div>
+              )}
+            </div>
+          </div>
+          {edit.comment && (
+            <div className="text-sm text-gray-700 mt-2 italic">
+              "{edit.comment}"
+            </div>
+          )}
+        </div>
+
+        {/* Show actual edit content based on what we have */}
+        <div className="bg-white">
+          {/* First, try structured diff content */}
+          {edit.diff_content && edit.diff_content.length > 0 ? (
+            <div>
+              {edit.diff_content.map((section, sectionIndex) => (
+                <div key={sectionIndex}>
                   {section.context_before && section.context_before.map((line, lineIndex) => (
                     <div key={`before-${lineIndex}`}>
                       {renderDiffLine(line, 'context')}
@@ -181,52 +266,77 @@ const UserAccountAnalysis = ({ title }) => {
                 </div>
               ))}
             </div>
-          ) : (
-            // Fallback for legacy format or when diff_content is not available
+          ) : 
+          /* Try legacy format with separate arrays */
+          (edit.unchanged || edit.deletions || edit.additions) ? (
+            <div>
+              {edit.unchanged && edit.unchanged.map((line, index) => (
+                <div key={`unchanged-${index}`}>
+                  {renderDiffLine(line, 'context')}
+                </div>
+              ))}
+              
+              {edit.deletions && edit.deletions.map((line, index) => (
+                <div key={`deletion-${index}`}>
+                  {renderDiffLine(line, 'removed')}
+                </div>
+              ))}
+              
+              {edit.additions && edit.additions.map((line, index) => (
+                <div key={`addition-${index}`}>
+                  {renderDiffLine(line, 'added')}
+                </div>
+              ))}
+            </div>
+          ) : 
+          /* Try raw diff text if available */
+          edit.diff ? (
             <div className="p-4">
-              {/* Context/Unchanged Content */}
-              {edit.unchanged && edit.unchanged.length > 0 && (
-                <div className="mb-3">
-                  {edit.unchanged.map((unchanged, unchangedIndex) => (
-                    <div key={unchangedIndex}>
-                      {renderDiffLine(unchanged, 'context')}
-                    </div>
+              <div className="text-xs font-medium text-gray-700 mb-2">Raw Diff:</div>
+              <pre className="bg-gray-50 p-3 rounded text-xs overflow-x-auto font-mono whitespace-pre-wrap">
+                {edit.diff}
+              </pre>
+            </div>
+          ) : 
+          /* Try any text content available */
+          edit.text || edit.content ? (
+            <div className="p-4">
+              <div className="text-xs font-medium text-gray-700 mb-2">Edit Content:</div>
+              <div className="bg-blue-50 border-l-4 border-blue-400 p-3">
+                <div className="text-sm text-blue-800 font-mono whitespace-pre-wrap">
+                  {edit.text || edit.content}
+                </div>
+              </div>
+            </div>
+          ) :
+          /* Show all available edit properties */
+          (
+            <div className="p-4">
+              <div className="text-sm font-medium text-gray-700 mb-3">Available Edit Data:</div>
+              <div className="bg-gray-50 rounded p-3">
+                <div className="grid grid-cols-1 gap-2 text-xs">
+                  {Object.entries(edit).map(([key, value]) => (
+                    key !== 'timestamp' && key !== 'comment' && key !== 'revid' && key !== 'size_change' && (
+                      <div key={key} className="flex">
+                        <span className="font-medium text-gray-600 w-24 flex-shrink-0">{key}:</span>
+                        <span className="text-gray-800 break-words">
+                          {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
+                        </span>
+                      </div>
+                    )
                   ))}
                 </div>
-              )}
+              </div>
               
-              {/* Deleted Content */}
-              {edit.deletions && edit.deletions.length > 0 && (
-                <div className="mb-3">
-                  {edit.deletions.map((deletion, delIndex) => (
-                    <div key={delIndex}>
-                      {renderDiffLine(deletion, 'removed')}
-                    </div>
-                  ))}
-                </div>
-              )}
-              
-              {/* Added Content */}
-              {edit.additions && edit.additions.length > 0 && (
-                <div className="mb-3">
-                  {edit.additions.map((addition, addIndex) => (
-                    <div key={addIndex}>
-                      {renderDiffLine(addition, 'added')}
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* If no diff data at all */}
-              {(!edit.unchanged || edit.unchanged.length === 0) && 
-               (!edit.deletions || edit.deletions.length === 0) && 
-               (!edit.additions || edit.additions.length === 0) && 
-               (!edit.diff_content || edit.diff_content.length === 0) && (
-                <div className="text-center py-8 text-gray-500">
-                  <div className="text-sm">No diff data available for this edit</div>
-                  <div className="text-xs mt-1">This might be placeholder data or an API issue</div>
-                </div>
-              )}
+              {/* Raw object dump for debugging */}
+              <details className="mt-3">
+                <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700">
+                  Show raw edit object
+                </summary>
+                <pre className="mt-2 bg-yellow-50 p-2 rounded text-xs overflow-x-auto">
+                  {JSON.stringify(edit, null, 2)}
+                </pre>
+              </details>
             </div>
           )}
         </div>
