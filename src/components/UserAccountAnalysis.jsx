@@ -54,31 +54,17 @@ const UserAccountAnalysis = ({ title }) => {
       }
     } catch (error) {
       console.error(`Error fetching edit diffs for ${username}:`, error);
-      // Fallback to mock data for demonstration
-      const mockEditData = {
+      // Set empty data on error - no mock fallback
+      const emptyEditData = {
         username: username,
-        totalEdits: 1,
-        edits: [
-          {
-            timestamp: new Date().toISOString(),
-            comment: "Updated article content",
-            additions: [
-              "deportations of immigrants,",
-              "reversing of pro-diversity policies,",
-              "[Persecution of transgender people under the second Trump administration|targeting of transgender people]],"
-            ],
-            deletions: [
-              "elimination of [[Diversity, equity, and inclusion]],"
-            ],
-            context: "Trump's second presidency policies"
-          }
-        ]
+        totalEdits: 0,
+        edits: []
       };
       setUserEdits(prev => ({
         ...prev,
-        [username]: mockEditData
+        [username]: emptyEditData
       }));
-      return mockEditData;
+      return emptyEditData;
     }
     return null;
   };
@@ -100,6 +86,21 @@ const UserAccountAnalysis = ({ title }) => {
     if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
     if (days < 365) return `${Math.floor(days / 30)} months ago`;
     return `${Math.floor(days / 365)} years ago`;
+  };
+
+  const formatTimestamp = (timestamp) => {
+    try {
+      const date = new Date(timestamp);
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return timestamp;
+    }
   };
 
   const toggleSection = (section) => {
@@ -212,55 +213,90 @@ const UserAccountAnalysis = ({ title }) => {
                   {expandedUsers[user.username] && userEdits[user.username] && (
                     <div className="px-3 pb-3 border-t border-red-100 bg-red-25">
                       <div className="mt-3 space-y-3">
-                        <div className="text-sm font-medium text-red-800">
-                          Edits on "{title}": {userEdits[user.username].totalEdits || user.editCount}
+                        <div className="text-sm font-medium text-red-800 mb-2">
+                          Recent Activity:
+                        </div>
+                        <div className="text-xs text-red-600 mb-3">
+                          • {userEdits[user.username].totalEdits || 0} total edits on this article
+                        </div>
+                        <div className="text-xs text-red-600 mb-3">
+                          • Account created {getAccountAgeLabel(user.accountAge)}
+                        </div>
+                        <div className="text-xs text-red-600 mb-3">
+                          • Last edit: Recent activity detected
                         </div>
                         
-                        {/* Edit Diffs Display */}
+                        {/* Wikipedia-style Edit Diffs */}
                         {userEdits[user.username].edits && userEdits[user.username].edits.map((edit, editIndex) => (
-                          <div key={editIndex} className="bg-white rounded border border-red-200 p-3">
-                            <div className="text-xs text-red-600 mb-2 font-medium">
-                              Edit #{editIndex + 1} - {edit.comment || 'No edit summary'}
+                          <div key={editIndex} className="bg-white rounded border border-red-200 overflow-hidden">
+                            {/* Edit Header */}
+                            <div className="bg-slate-100 px-3 py-2 border-b border-red-200">
+                              <div className="text-xs font-medium text-slate-700">
+                                Edits on "{title}": {edit.revid ? `Revision ${edit.revid}` : `Edit #${editIndex + 1}`}
+                              </div>
+                              <div className="text-xs text-slate-600 mt-1">
+                                {formatTimestamp(edit.timestamp)} - {edit.comment || 'No edit summary'}
+                              </div>
+                              {edit.size_change && (
+                                <div className="text-xs text-slate-600 mt-1">
+                                  Size change: {edit.size_change > 0 ? '+' : ''}{edit.size_change} bytes
+                                </div>
+                              )}
                             </div>
                             
-                            {/* Deleted Content */}
-                            {edit.deletions && edit.deletions.length > 0 && (
-                              <div className="mb-2">
-                                <div className="text-xs font-medium text-red-700 mb-1">Removed:</div>
-                                {edit.deletions.map((deletion, delIndex) => (
-                                  <div key={delIndex} className="bg-red-100 border-l-4 border-red-400 p-2 mb-1">
-                                    <span className="text-sm text-red-800 font-mono">
-                                      - {deletion}
-                                    </span>
+                            <div className="p-3">
+                              {/* Context/Unchanged Content */}
+                              {edit.unchanged && edit.unchanged.length > 0 && (
+                                <div className="mb-3">
+                                  {edit.unchanged.map((unchanged, unchangedIndex) => (
+                                    <div key={unchangedIndex} className="bg-slate-50 border-l-4 border-slate-300 p-2 mb-1">
+                                      <span className="text-sm text-slate-700 font-mono text-xs">
+                                        {unchanged}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Deleted Content (Red highlighting like Wikipedia) */}
+                              {edit.deletions && edit.deletions.length > 0 && (
+                                <div className="mb-3">
+                                  <div className="text-xs font-medium text-slate-700 mb-2 flex items-center">
+                                    <span className="bg-red-200 text-red-800 px-2 py-1 rounded text-xs mr-2">−</span>
+                                    Removed content:
                                   </div>
-                                ))}
-                              </div>
-                            )}
-                            
-                            {/* Added Content */}
-                            {edit.additions && edit.additions.length > 0 && (
-                              <div className="mb-2">
-                                <div className="text-xs font-medium text-green-700 mb-1">Added:</div>
-                                {edit.additions.map((addition, addIndex) => (
-                                  <div key={addIndex} className="bg-green-100 border-l-4 border-green-400 p-2 mb-1">
-                                    <span className="text-sm text-green-800 font-mono">
-                                      + {addition}
-                                    </span>
+                                  {edit.deletions.map((deletion, delIndex) => (
+                                    <div key={delIndex} className="bg-red-100 border-l-4 border-red-400 p-2 mb-1">
+                                      <span className="text-sm text-red-800 font-mono text-xs">
+                                        {deletion}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Added Content (Blue/Green highlighting like Wikipedia) */}
+                              {edit.additions && edit.additions.length > 0 && (
+                                <div className="mb-3">
+                                  <div className="text-xs font-medium text-slate-700 mb-2 flex items-center">
+                                    <span className="bg-blue-200 text-blue-800 px-2 py-1 rounded text-xs mr-2">+</span>
+                                    Added content:
                                   </div>
-                                ))}
-                              </div>
-                            )}
-                            
-                            {edit.context && (
-                              <div className="text-xs text-gray-600 mt-2 italic">
-                                Context: {edit.context}
-                              </div>
-                            )}
+                                  {edit.additions.map((addition, addIndex) => (
+                                    <div key={addIndex} className="bg-blue-100 border-l-4 border-blue-400 p-2 mb-1">
+                                      <span className="text-sm text-blue-800 font-mono text-xs">
+                                        {addition}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         ))}
                         
                         {(!userEdits[user.username].edits || userEdits[user.username].edits.length === 0) && (
-                          <div className="text-xs text-red-600 bg-white rounded p-2 border border-red-200">
+                          <div className="text-xs text-red-600 bg-white rounded p-3 border border-red-200">
                             No detailed edit information available for this user.
                           </div>
                         )}
@@ -336,55 +372,87 @@ const UserAccountAnalysis = ({ title }) => {
                   {expandedUsers[user.username] && userEdits[user.username] && (
                     <div className="px-3 pb-3 border-t border-slate-100 bg-slate-25">
                       <div className="mt-3 space-y-3">
-                        <div className="text-sm font-medium text-slate-800">
-                          Edits on "{title}": {userEdits[user.username].totalEdits || user.editCount}
+                        <div className="text-sm font-medium text-slate-800 mb-2">
+                          Recent Activity:
+                        </div>
+                        <div className="text-xs text-slate-600 mb-3">
+                          • {userEdits[user.username].totalEdits || 0} total edits on this article
+                        </div>
+                        <div className="text-xs text-slate-600 mb-3">
+                          • User currently blocked
                         </div>
                         
-                        {/* Edit Diffs Display */}
+                        {/* Wikipedia-style Edit Diffs */}
                         {userEdits[user.username].edits && userEdits[user.username].edits.map((edit, editIndex) => (
-                          <div key={editIndex} className="bg-white rounded border border-slate-200 p-3">
-                            <div className="text-xs text-slate-600 mb-2 font-medium">
-                              Edit #{editIndex + 1} - {edit.comment || 'No edit summary'}
+                          <div key={editIndex} className="bg-white rounded border border-slate-200 overflow-hidden">
+                            {/* Edit Header */}
+                            <div className="bg-slate-100 px-3 py-2 border-b border-slate-200">
+                              <div className="text-xs font-medium text-slate-700">
+                                Edits on "{title}": {edit.revid ? `Revision ${edit.revid}` : `Edit #${editIndex + 1}`}
+                              </div>
+                              <div className="text-xs text-slate-600 mt-1">
+                                {formatTimestamp(edit.timestamp)} - {edit.comment || 'No edit summary'}
+                              </div>
+                              {edit.size_change && (
+                                <div className="text-xs text-slate-600 mt-1">
+                                  Size change: {edit.size_change > 0 ? '+' : ''}{edit.size_change} bytes
+                                </div>
+                              )}
                             </div>
                             
-                            {/* Deleted Content */}
-                            {edit.deletions && edit.deletions.length > 0 && (
-                              <div className="mb-2">
-                                <div className="text-xs font-medium text-red-700 mb-1">Removed:</div>
-                                {edit.deletions.map((deletion, delIndex) => (
-                                  <div key={delIndex} className="bg-red-100 border-l-4 border-red-400 p-2 mb-1">
-                                    <span className="text-sm text-red-800 font-mono">
-                                      - {deletion}
-                                    </span>
+                            <div className="p-3">
+                              {/* Context/Unchanged Content */}
+                              {edit.unchanged && edit.unchanged.length > 0 && (
+                                <div className="mb-3">
+                                  {edit.unchanged.map((unchanged, unchangedIndex) => (
+                                    <div key={unchangedIndex} className="bg-slate-50 border-l-4 border-slate-300 p-2 mb-1">
+                                      <span className="text-sm text-slate-700 font-mono text-xs">
+                                        {unchanged}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Deleted Content (Red highlighting like Wikipedia) */}
+                              {edit.deletions && edit.deletions.length > 0 && (
+                                <div className="mb-3">
+                                  <div className="text-xs font-medium text-slate-700 mb-2 flex items-center">
+                                    <span className="bg-red-200 text-red-800 px-2 py-1 rounded text-xs mr-2">−</span>
+                                    Removed content:
                                   </div>
-                                ))}
-                              </div>
-                            )}
-                            
-                            {/* Added Content */}
-                            {edit.additions && edit.additions.length > 0 && (
-                              <div className="mb-2">
-                                <div className="text-xs font-medium text-green-700 mb-1">Added:</div>
-                                {edit.additions.map((addition, addIndex) => (
-                                  <div key={addIndex} className="bg-green-100 border-l-4 border-green-400 p-2 mb-1">
-                                    <span className="text-sm text-green-800 font-mono">
-                                      + {addition}
-                                    </span>
+                                  {edit.deletions.map((deletion, delIndex) => (
+                                    <div key={delIndex} className="bg-red-100 border-l-4 border-red-400 p-2 mb-1">
+                                      <span className="text-sm text-red-800 font-mono text-xs">
+                                        {deletion}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                              
+                              {/* Added Content (Blue/Green highlighting like Wikipedia) */}
+                              {edit.additions && edit.additions.length > 0 && (
+                                <div className="mb-3">
+                                  <div className="text-xs font-medium text-slate-700 mb-2 flex items-center">
+                                    <span className="bg-blue-200 text-blue-800 px-2 py-1 rounded text-xs mr-2">+</span>
+                                    Added content:
                                   </div>
-                                ))}
-                              </div>
-                            )}
-                            
-                            {edit.context && (
-                              <div className="text-xs text-gray-600 mt-2 italic">
-                                Context: {edit.context}
-                              </div>
-                            )}
+                                  {edit.additions.map((addition, addIndex) => (
+                                    <div key={addIndex} className="bg-blue-100 border-l-4 border-blue-400 p-2 mb-1">
+                                      <span className="text-sm text-blue-800 font-mono text-xs">
+                                        {addition}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         ))}
                         
                         {(!userEdits[user.username].edits || userEdits[user.username].edits.length === 0) && (
-                          <div className="text-xs text-slate-600 bg-white rounded p-2 border border-slate-200">
+                          <div className="text-xs text-slate-600 bg-white rounded p-3 border border-slate-200">
                             No detailed edit information available for this user.
                           </div>
                         )}
