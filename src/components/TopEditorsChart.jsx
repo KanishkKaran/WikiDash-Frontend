@@ -202,9 +202,6 @@ function TopEditorsChart({ title, onSelectEditor }) {
         <Bar data={chartData} options={options} />
       </div>
       
-      <div className="text-center mt-3 mb-2">
-        <p className="text-xs text-indigo-600">Click on any bar to see the editor's profile below</p>
-      </div>
       
       <div className="mt-4 pt-4 border-t border-gray-100">
         <p className="text-xs text-gray-500">
