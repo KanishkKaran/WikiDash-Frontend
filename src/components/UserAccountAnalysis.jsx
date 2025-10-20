@@ -39,18 +39,32 @@ const UserAccountAnalysis = ({ title }) => {
   }, [title]);
 
   const fetchUserEdits = async (username) => {
-    if (userEdits[username]) return userEdits[username]; // Already fetched
+    if (userEdits[username]) {
+      console.log(`🔄 Already cached edits for ${username}`);
+      return userEdits[username]; // Already fetched
+    }
     
     setLoadingUsers(prev => ({ ...prev, [username]: true }));
     
     try {
-      // Debug: Log the API call being made
-      console.log(`Fetching edits for user: ${username}, article: ${title}`);
+      // Debug: Log the exact API call being made
+      const apiUrl = `/api/user/${encodeURIComponent(username)}/article-edits?title=${encodeURIComponent(title)}`;
+      console.log(`🔍 Fetching edits for user: ${username}`);
+      console.log(`📡 API URL: ${apiUrl}`);
       
-      const response = await api.get(`/api/user/${encodeURIComponent(username)}/article-edits?title=${encodeURIComponent(title)}`);
+      const response = await api.get(apiUrl);
       
-      // Debug: Log the raw response for this specific user
-      console.log(`Raw edit response for ${username}:`, response.data);
+      // Debug: Check if API is returning user-specific data
+      console.log(`📥 RAW API Response for ${username}:`, {
+        status: response.status,
+        url: response.config?.url,
+        data: response.data
+      });
+      
+      // Critical check: Does the response actually contain this username?
+      if (response.data && response.data.username && response.data.username !== username) {
+        console.error(`🚨 API BUG: Requested ${username} but got data for ${response.data.username}`);
+      }
       
       if (response.data && response.data.edits) {
         const editData = {
@@ -58,11 +72,41 @@ const UserAccountAnalysis = ({ title }) => {
           edits: response.data.edits || [],
           totalEdits: response.data.totalEdits || 0,
           lastEdit: response.data.lastEdit || null,
-          accountCreated: response.data.accountCreated || null
+          accountCreated: response.data.accountCreated || null,
+          // Add unique identifier to track data source
+          fetchedAt: new Date().toISOString(),
+          apiUrl: apiUrl
         };
         
-        // Debug: Log processed edit data
-        console.log(`Processed edit data for ${username}:`, editData);
+        // Debug: Check for duplicate edit content across users
+        const editSignature = JSON.stringify(response.data.edits?.map(edit => ({
+          revid: edit.revid,
+          timestamp: edit.timestamp,
+          comment: edit.comment
+        })));
+        
+        const existingUsers = Object.keys(userEdits);
+        for (const existingUser of existingUsers) {
+          const existingSignature = JSON.stringify(userEdits[existingUser].edits?.map(edit => ({
+            revid: edit.revid,
+            timestamp: edit.timestamp,
+            comment: edit.comment
+          })));
+          
+          if (editSignature === existingSignature && editSignature !== '[]') {
+            console.error(`🚨 DUPLICATE EDIT DATA DETECTED:`);
+            console.error(`   ${username} has identical edits to ${existingUser}`);
+            console.error(`   This suggests the API is returning the same data for different users!`);
+          }
+        }
+        
+        console.log(`✅ Processed edit data for ${username}:`, {
+          username: editData.username,
+          totalEdits: editData.totalEdits,
+          editsCount: editData.edits.length,
+          firstEditRevId: editData.edits[0]?.revid,
+          fetchedAt: editData.fetchedAt
+        });
         
         setUserEdits(prev => ({
           ...prev,
@@ -71,20 +115,29 @@ const UserAccountAnalysis = ({ title }) => {
         
         setLoadingUsers(prev => ({ ...prev, [username]: false }));
         return editData;
+      } else {
+        console.warn(`⚠️ No edits data in response for ${username}:`, response.data);
       }
     } catch (error) {
-      console.error(`Error fetching edit diffs for ${username}:`, error);
+      console.error(`❌ Error fetching edit diffs for ${username}:`, error);
       
       // Check if this is a 404 or if we're getting placeholder data
       if (error.response) {
-        console.log(`API Error for ${username}:`, error.response.status, error.response.data);
+        console.log(`📛 API Error details for ${username}:`, {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          data: error.response.data,
+          url: error.response.config?.url
+        });
       }
       
       const emptyEditData = {
         username: username,
         totalEdits: 0,
         edits: [],
-        error: true
+        error: true,
+        errorDetails: error.message,
+        fetchedAt: new Date().toISOString()
       };
       setUserEdits(prev => ({
         ...prev,
@@ -356,14 +409,52 @@ const UserAccountAnalysis = ({ title }) => {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Debug Panel - Remove this in production */}
+      {/* Debug Panel - Enhanced to show duplicate detection */}
       {process.env.NODE_ENV === 'development' && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="text-sm font-medium text-yellow-800 mb-2">Debug Info:</div>
+          <div className="text-sm font-medium text-yellow-800 mb-2">Debug Info & Duplicate Detection:</div>
           <div className="text-xs text-yellow-700 space-y-1">
             <div>Total Users Loaded: {accountData.newUsers.length + accountData.blockedUsers.length}</div>
             <div>User Edits Cached: {Object.keys(userEdits).length}</div>
             <div>API Title: {title}</div>
+            
+            {/* Check for duplicate edits across users */}
+            {Object.keys(userEdits).length > 1 && (
+              <div className="mt-3 p-2 bg-yellow-100 rounded">
+                <div className="font-medium text-yellow-800 mb-1">Duplicate Edit Analysis:</div>
+                {(() => {
+                  const signatures = {};
+                  const duplicates = [];
+                  
+                  Object.entries(userEdits).forEach(([username, data]) => {
+                    if (data.edits && data.edits.length > 0) {
+                      const signature = JSON.stringify(data.edits.map(edit => ({
+                        revid: edit.revid,
+                        timestamp: edit.timestamp,
+                        size_change: edit.size_change
+                      })));
+                      
+                      if (signatures[signature]) {
+                        duplicates.push(`${username} has identical edits to ${signatures[signature]}`);
+                      } else {
+                        signatures[signature] = username;
+                      }
+                    }
+                  });
+                  
+                  return duplicates.length > 0 ? (
+                    <div className="space-y-1">
+                      <div className="text-red-600 font-medium">🚨 DUPLICATES FOUND:</div>
+                      {duplicates.map((duplicate, idx) => (
+                        <div key={idx} className="text-red-700 text-xs">{duplicate}</div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-green-600">✅ No duplicate edits detected</div>
+                  );
+                })()}
+              </div>
+            )}
           </div>
         </div>
       )}
