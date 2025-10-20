@@ -40,7 +40,7 @@ const UserAccountAnalysis = ({ title }) => {
 
   const fetchUserEdits = async (username) => {
     if (userEdits[username]) {
-      console.log(`🔄 Already cached edits for ${username}`);
+      console.log(`Already cached edits for ${username}`);
       return userEdits[username]; // Already fetched
     }
     
@@ -49,64 +49,89 @@ const UserAccountAnalysis = ({ title }) => {
     try {
       // Debug: Log the exact API call being made
       const apiUrl = `/api/user/${encodeURIComponent(username)}/article-edits?title=${encodeURIComponent(title)}`;
-      console.log(`🔍 Fetching edits for user: ${username}`);
-      console.log(`📡 API URL: ${apiUrl}`);
+      console.log(`\nFetching edits for user: ${username}`);
+      console.log(`API URL: ${window.location.origin}${apiUrl}`);
+      console.log(`Username Parameter: "${username}"`);
+      console.log(`Article Parameter: "${title}"`);
       
       const response = await api.get(apiUrl);
       
       // Debug: Check if API is returning user-specific data
-      console.log(`📥 RAW API Response for ${username}:`, {
-        status: response.status,
-        url: response.config?.url,
-        data: response.data
-      });
+      console.log(`API Response for ${username}:`);
+      console.log(`Status: ${response.status}`);
+      console.log(`Request URL: ${response.config?.url}`);
+      console.log(`Response Headers:`, response.headers);
+      console.log(`Full Response Data:`, JSON.stringify(response.data, null, 2));
+      
+      // CRITICAL: Check if the API is actually using the username parameter
+      if (response.data) {
+        console.log(`\nResponse Analysis for ${username}:`);
+        console.log(`Response contains username field:`, !!response.data.username);
+        console.log(`Response username value:`, response.data.username);
+        console.log(`Does response username match request:`, response.data.username === username);
+        console.log(`Response contains edits:`, !!response.data.edits);
+        console.log(`Number of edits:`, response.data.edits?.length || 0);
+        
+        // Log first few edit details to identify if they're user-specific
+        if (response.data.edits && response.data.edits.length > 0) {
+          console.log(`First edit details:`, {
+            revid: response.data.edits[0].revid,
+            timestamp: response.data.edits[0].timestamp,
+            comment: response.data.edits[0].comment,
+            size_change: response.data.edits[0].size_change
+          });
+        }
+      }
       
       // Critical check: Does the response actually contain this username?
       if (response.data && response.data.username && response.data.username !== username) {
-        console.error(`🚨 API BUG: Requested ${username} but got data for ${response.data.username}`);
+        console.error(`API Error: Requested username "${username}" but received username "${response.data.username}"`);
+        console.error(`This indicates the API is not respecting the username parameter`);
       }
       
       if (response.data && response.data.edits) {
+        // Generate a unique signature for this edit set
+        const editSignature = response.data.edits.map(edit => `${edit.revid}-${edit.timestamp}`).join('|');
+        
+        console.log(`\nDuplicate Check for ${username}:`);
+        console.log(`Edit signature for ${username}: ${editSignature.substring(0, 100)}...`);
+        
+        // Check against all existing users
+        const duplicateUsers = [];
+        Object.entries(userEdits).forEach(([existingUser, existingData]) => {
+          if (existingData.edits && existingData.edits.length > 0) {
+            const existingSignature = existingData.edits.map(edit => `${edit.revid}-${edit.timestamp}`).join('|');
+            if (editSignature === existingSignature && editSignature !== '') {
+              duplicateUsers.push(existingUser);
+            }
+          }
+        });
+        
+        if (duplicateUsers.length > 0) {
+          console.error(`Duplicate Edits Detected: ${username} has identical edits to: ${duplicateUsers.join(', ')}`);
+          console.error(`This confirms the API issue - same data returned for different users`);
+          console.error(`Backend endpoint is not filtering by username correctly`);
+        } else {
+          console.log(`Verified: ${username} has unique edit data`);
+        }
+        
         const editData = {
           username: username,
           edits: response.data.edits || [],
           totalEdits: response.data.totalEdits || 0,
           lastEdit: response.data.lastEdit || null,
           accountCreated: response.data.accountCreated || null,
-          // Add unique identifier to track data source
           fetchedAt: new Date().toISOString(),
-          apiUrl: apiUrl
+          apiUrl: apiUrl,
+          editSignature: editSignature,
+          responseUsername: response.data.username || 'not provided'
         };
         
-        // Debug: Check for duplicate edit content across users
-        const editSignature = JSON.stringify(response.data.edits?.map(edit => ({
-          revid: edit.revid,
-          timestamp: edit.timestamp,
-          comment: edit.comment
-        })));
-        
-        const existingUsers = Object.keys(userEdits);
-        for (const existingUser of existingUsers) {
-          const existingSignature = JSON.stringify(userEdits[existingUser].edits?.map(edit => ({
-            revid: edit.revid,
-            timestamp: edit.timestamp,
-            comment: edit.comment
-          })));
-          
-          if (editSignature === existingSignature && editSignature !== '[]') {
-            console.error(`🚨 DUPLICATE EDIT DATA DETECTED:`);
-            console.error(`   ${username} has identical edits to ${existingUser}`);
-            console.error(`   This suggests the API is returning the same data for different users!`);
-          }
-        }
-        
-        console.log(`✅ Processed edit data for ${username}:`, {
-          username: editData.username,
-          totalEdits: editData.totalEdits,
-          editsCount: editData.edits.length,
-          firstEditRevId: editData.edits[0]?.revid,
-          fetchedAt: editData.fetchedAt
-        });
+        console.log(`Stored Data for ${username}:`);
+        console.log(`Stored username: ${editData.username}`);
+        console.log(`Total edits: ${editData.totalEdits}`);
+        console.log(`Edits array length: ${editData.edits.length}`);
+        console.log(`Signature: ${editData.editSignature.substring(0, 50)}...`);
         
         setUserEdits(prev => ({
           ...prev,
@@ -116,19 +141,15 @@ const UserAccountAnalysis = ({ title }) => {
         setLoadingUsers(prev => ({ ...prev, [username]: false }));
         return editData;
       } else {
-        console.warn(`⚠️ No edits data in response for ${username}:`, response.data);
+        console.warn(`No edits data in response for ${username}:`, response.data);
       }
     } catch (error) {
-      console.error(`❌ Error fetching edit diffs for ${username}:`, error);
+      console.error(`Error for ${username}:`, error);
       
-      // Check if this is a 404 or if we're getting placeholder data
       if (error.response) {
-        console.log(`📛 API Error details for ${username}:`, {
-          status: error.response.status,
-          statusText: error.response.statusText,
-          data: error.response.data,
-          url: error.response.config?.url
-        });
+        console.log(`Error status: ${error.response.status}`);
+        console.log(`Error data:`, error.response.data);
+        console.log(`Error URL:`, error.response.config?.url);
       }
       
       const emptyEditData = {
@@ -412,7 +433,7 @@ const UserAccountAnalysis = ({ title }) => {
       {/* Debug Panel - Enhanced to show duplicate detection */}
       {process.env.NODE_ENV === 'development' && (
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="text-sm font-medium text-yellow-800 mb-2">Debug Info & Duplicate Detection:</div>
+          <div className="text-sm font-medium text-yellow-800 mb-2">Debug Information and Duplicate Detection:</div>
           <div className="text-xs text-yellow-700 space-y-1">
             <div>Total Users Loaded: {accountData.newUsers.length + accountData.blockedUsers.length}</div>
             <div>User Edits Cached: {Object.keys(userEdits).length}</div>
@@ -444,13 +465,13 @@ const UserAccountAnalysis = ({ title }) => {
                   
                   return duplicates.length > 0 ? (
                     <div className="space-y-1">
-                      <div className="text-red-600 font-medium">🚨 DUPLICATES FOUND:</div>
+                      <div className="text-red-600 font-medium">DUPLICATES FOUND:</div>
                       {duplicates.map((duplicate, idx) => (
                         <div key={idx} className="text-red-700 text-xs">{duplicate}</div>
                       ))}
                     </div>
                   ) : (
-                    <div className="text-green-600">✅ No duplicate edits detected</div>
+                    <div className="text-green-600">No duplicate edits detected</div>
                   );
                 })()}
               </div>
@@ -501,8 +522,10 @@ const UserAccountAnalysis = ({ title }) => {
           </button>
           
           {expandedSections.newUsers && (
-            <div className="px-4 pb-4 space-y-2">
-              {accountData.newUsers.map((user, index) => (
+            <div className="px-4 pb-4">
+              {/* Show only first 10 users, with option to show more */}
+              <div className="space-y-2">
+                {accountData.newUsers.slice(0, 10).map((user, index) => (
                 <div key={`new-user-${index}-${user.username}`} className="bg-white rounded border border-red-200">
                   <button
                     onClick={() => handleUserClick(user.username)}
@@ -591,11 +614,19 @@ const UserAccountAnalysis = ({ title }) => {
                   )}
                 </div>
               ))}
+              
+              {/* Show more button for account ages */}
+              {accountData.accountAges.length > 12 && (
+                <div className="mt-4 text-center">
+                  <button className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm hover:bg-slate-200 transition-colors">
+                    Show {accountData.accountAges.length - 12} more editors...
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      )}
-
+          </div>
+        )}
+      </div>
       {/* Blocked Users - Similar improvements */}
       {accountData.blockedUsers.length > 0 && (
         <div className="bg-slate-50 border border-slate-200 rounded-lg">
