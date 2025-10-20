@@ -9,7 +9,6 @@ import EditorNetworkGraph from './components/EditorNetworkGraph'
 import TopRevertersChart from './components/TopRevertersChart'
 import RevisionIntensityChart from './components/RevisionIntensityChart'
 import UserEditProfileChart from './components/UserEditProfileChart'
-import RiskAssessmentCard from './components/RiskAssessmentCard'
 import UserAccountAnalysis from './components/UserAccountAnalysis'
 import api from './utils/api'
 
@@ -281,31 +280,16 @@ function Dashboard() {
               </div>
             </div>
 
-            {/* Risk Assessment Card - Only show if we have editor data */}
-            {(dashboardData.editorsData || dashboardData.editData) && (
-              <div className="bg-white backdrop-blur-lg bg-opacity-90 shadow-xl rounded-xl overflow-hidden mb-10 border border-slate-100">
-                <div className="border-b border-slate-100 px-6 py-4 bg-gradient-to-r from-slate-50 to-slate-100">
-                  <h2 className="text-lg font-semibold text-slate-800 flex items-center">
-                    <svg className="w-6 h-6 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                    </svg>
-                    Article Quality & Risk Assessment
-                  </h2>
-                </div>
-                <RiskAssessmentCard title={title} />
-              </div>
-            )}
-
-            {/* User Account Analysis Widget - SINGLE INSTANCE */}
+            {/* User Account Analysis Widget */}
             <div className="bg-white backdrop-blur-lg bg-opacity-90 shadow-xl rounded-xl overflow-hidden mb-10 border border-slate-100">
               <div className="border-b border-slate-100 px-6 py-4 bg-gradient-to-r from-slate-50 to-slate-100">
                 <h2 className="text-lg font-semibold text-slate-800 flex items-center">
-                  <svg className="w-6 h-6 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-6 h-6 mr-2 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
                   </svg>
                   Editor Account Security Analysis
                 </h2>
-                <p className="text-sm text-slate-500 mt-1">Analyze new users, blocked accounts, and account ages of all editors</p>
+                <p className="text-sm text-slate-500 mt-1">Account age and status information for all editors</p>
               </div>
               <UserAccountAnalysis title={title} />
             </div>
