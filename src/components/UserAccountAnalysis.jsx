@@ -613,20 +613,22 @@ const UserAccountAnalysis = ({ title }) => {
                     </div>
                   )}
                 </div>
-              ))}
+                ))}
               
-              {/* Show more button for account ages */}
-              {accountData.accountAges.length > 12 && (
-                <div className="mt-4 text-center">
-                  <button className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm hover:bg-slate-200 transition-colors">
-                    Show {accountData.accountAges.length - 12} more editors...
-                  </button>
-                </div>
-              )}
+                {/* Show more button for account ages */}
+                {accountData.accountAges.length > 12 && (
+                  <div className="mt-4 text-center">
+                    <button className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm hover:bg-slate-200 transition-colors">
+                      Show {accountData.accountAges.length - 12} more editors...
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
+
       {/* Blocked Users - Similar improvements */}
       {accountData.blockedUsers.length > 0 && (
         <div className="bg-slate-50 border border-slate-200 rounded-lg">
