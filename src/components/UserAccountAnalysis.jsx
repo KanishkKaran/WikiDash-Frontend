@@ -16,6 +16,7 @@ const UserAccountAnalysis = ({ title }) => {
     accountAges: false
   });
   const [userEdits, setUserEdits] = useState({});
+  const [expandedUsers, setExpandedUsers] = useState({});
 
   useEffect(() => {
     const fetchUserAccountData = async () => {
@@ -34,7 +35,7 @@ const UserAccountAnalysis = ({ title }) => {
   }, [title]);
 
   const fetchUserEdits = async (username) => {
-    if (userEdits[username]) return; // Already fetched
+    if (userEdits[username]) return userEdits[username]; // Already fetched
     
     try {
       // Fetch user's recent edits on this specific article
@@ -44,14 +45,17 @@ const UserAccountAnalysis = ({ title }) => {
         const articleEdits = response.data.contributions.find(
           contrib => contrib.title === title
         );
+        const editData = articleEdits || { title, edits: 0, recent_edits: [] };
         setUserEdits(prev => ({
           ...prev,
-          [username]: articleEdits || { title, edits: 0, recent_edits: [] }
+          [username]: editData
         }));
+        return editData;
       }
     } catch (error) {
       console.error(`Error fetching edits for ${username}:`, error);
     }
+    return null;
   };
 
   const formatCreationDate = (days) => {
@@ -81,7 +85,20 @@ const UserAccountAnalysis = ({ title }) => {
   };
 
   const handleUserClick = async (username) => {
-    await fetchUserEdits(username);
+    if (expandedUsers[username]) {
+      // Collapse
+      setExpandedUsers(prev => ({
+        ...prev,
+        [username]: false
+      }));
+    } else {
+      // Expand and fetch edits
+      setExpandedUsers(prev => ({
+        ...prev,
+        [username]: true
+      }));
+      await fetchUserEdits(username);
+    }
   };
 
   if (accountData.loading) {
@@ -150,17 +167,44 @@ const UserAccountAnalysis = ({ title }) => {
                         <span className="font-medium text-red-800">{user.username}</span>
                         <span className="text-xs text-red-600">Created {formatCreationDate(user.accountAge)}</span>
                       </div>
-                      <div className="text-right">
-                        <div className="text-sm font-medium text-red-700">{user.editCount} edits</div>
-                        <div className="text-xs text-red-500">{getAccountAgeLabel(user.accountAge)}</div>
+                      <div className="flex items-center">
+                        <div className="text-right mr-2">
+                          <div className="text-sm font-medium text-red-700">{user.editCount} edits</div>
+                          <div className="text-xs text-red-500">{getAccountAgeLabel(user.accountAge)}</div>
+                        </div>
+                        <svg 
+                          className={`w-4 h-4 text-red-600 transform transition-transform ${expandedUsers[user.username] ? 'rotate-180' : ''}`}
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
                       </div>
                     </div>
                   </button>
                   
-                  {userEdits[user.username] && (
+                  {expandedUsers[user.username] && userEdits[user.username] && (
+                    <div className="px-3 pb-3 border-t border-red-100 bg-red-25">
+                      <div className="mt-3 space-y-2">
+                        <div className="text-sm font-medium text-red-800">
+                          Edits on "{title}": {userEdits[user.username].edits || user.editCount}
+                        </div>
+                        <div className="text-xs text-red-600 bg-white rounded p-2 border border-red-200">
+                          <div className="font-medium mb-1">Recent Activity:</div>
+                          <div>• {user.editCount} total edits on this article</div>
+                          <div>• Account created {formatCreationDate(user.accountAge)}</div>
+                          <div>• Last edit: Recent activity detected</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {expandedUsers[user.username] && !userEdits[user.username] && (
                     <div className="px-3 pb-3 border-t border-red-100">
-                      <div className="text-xs text-red-600 mt-2">
-                        Recent edits on this article: {userEdits[user.username].edits || user.editCount}
+                      <div className="text-xs text-red-600 mt-2 flex items-center">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b border-red-600 mr-2"></div>
+                        Loading edit details...
                       </div>
                     </div>
                   )}
@@ -207,14 +251,41 @@ const UserAccountAnalysis = ({ title }) => {
                           Blocked
                         </span>
                       </div>
-                      <span className="text-sm text-slate-600">{user.editCount} edits</span>
+                      <div className="flex items-center">
+                        <span className="text-sm text-slate-600 mr-2">{user.editCount} edits</span>
+                        <svg 
+                          className={`w-4 h-4 text-slate-600 transform transition-transform ${expandedUsers[user.username] ? 'rotate-180' : ''}`}
+                          fill="none" 
+                          stroke="currentColor" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
                     </div>
                   </button>
                   
-                  {userEdits[user.username] && (
+                  {expandedUsers[user.username] && userEdits[user.username] && (
+                    <div className="px-3 pb-3 border-t border-slate-100 bg-slate-25">
+                      <div className="mt-3 space-y-2">
+                        <div className="text-sm font-medium text-slate-800">
+                          Edits on "{title}": {userEdits[user.username].edits || user.editCount}
+                        </div>
+                        <div className="text-xs text-slate-600 bg-white rounded p-2 border border-slate-200">
+                          <div className="font-medium mb-1">Edit History:</div>
+                          <div>• {user.editCount} total edits on this article</div>
+                          <div>• Currently blocked from editing</div>
+                          <div>• Previous contributions may require review</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {expandedUsers[user.username] && !userEdits[user.username] && (
                     <div className="px-3 pb-3 border-t border-slate-100">
-                      <div className="text-xs text-slate-600 mt-2">
-                        Recent edits on this article: {userEdits[user.username].edits || user.editCount}
+                      <div className="text-xs text-slate-600 mt-2 flex items-center">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b border-slate-600 mr-2"></div>
+                        Loading edit details...
                       </div>
                     </div>
                   )}
