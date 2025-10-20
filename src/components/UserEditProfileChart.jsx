@@ -5,43 +5,57 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
-function UserEditProfileChart({ username, title }) {
+function UserEditProfileChart({ username, title, selectedEditor, onEditorSelect, topEditors = [] }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedUsername, setSelectedUsername] = useState(username);
-  const [topEditors, setTopEditors] = useState([]);
+  const [currentUsername, setCurrentUsername] = useState(username || selectedEditor);
+  const [availableEditors, setAvailableEditors] = useState(topEditors);
 
   useEffect(() => {
-    // Fetch top editors first if no specific username is provided
+    // Fetch top editors if not provided
     const fetchTopEditors = async () => {
-      try {
-        console.log("Fetching top editors for:", title);
-        const response = await api.get(`/api/editors?title=${encodeURIComponent(title)}`);
-        console.log("Top editors response:", response.data);
-        
-        const editorsData = Array.isArray(response.data) 
-          ? response.data 
-          : (response.data.editors || []);
+      if (!topEditors || topEditors.length === 0) {
+        try {
+          console.log("Fetching top editors for:", title);
+          const response = await api.get(`/api/editors?title=${encodeURIComponent(title)}`);
+          console.log("Top editors response:", response.data);
           
-        setTopEditors(editorsData.slice(0, 10));
-        
-        // If no username is provided, use the top editor
-        if (!username && editorsData.length > 0) {
-          setSelectedUsername(editorsData[0].user);
+          const editorsData = Array.isArray(response.data) 
+            ? response.data 
+            : (response.data.editors || []);
+            
+          setAvailableEditors(editorsData.slice(0, 10));
+          
+          // If no username is provided, use the top editor
+          if (!currentUsername && editorsData.length > 0) {
+            setCurrentUsername(editorsData[0].user);
+            if (onEditorSelect) {
+              onEditorSelect(editorsData[0].user);
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching top editors:', err);
+          setError('Failed to load editor data');
         }
-      } catch (err) {
-        console.error('Error fetching top editors:', err);
-        setError('Failed to load editor data');
+      } else {
+        setAvailableEditors(topEditors);
       }
     };
     
     fetchTopEditors();
-  }, [title, username]);
+  }, [title, topEditors, currentUsername, onEditorSelect]);
+
+  // Update current username when props change
+  useEffect(() => {
+    if (username || selectedEditor) {
+      setCurrentUsername(username || selectedEditor);
+    }
+  }, [username, selectedEditor]);
 
   useEffect(() => {
     // Only proceed if we have a selected username
-    if (!selectedUsername) {
+    if (!currentUsername) {
       setLoading(false);
       return;
     }
@@ -51,10 +65,10 @@ function UserEditProfileChart({ username, title }) {
       setError(null);
       
       try {
-        console.log("Fetching profile for user:", selectedUsername);
+        console.log("Fetching profile for user:", currentUsername);
         
         // Fetch the actual editor's contributions from the API
-        const userContribsResponse = await api.get(`/api/user/${encodeURIComponent(selectedUsername)}/contributions`);
+        const userContribsResponse = await api.get(`/api/user/${encodeURIComponent(currentUsername)}/contributions`);
         console.log("User contributions:", userContribsResponse.data);
         
         // Process the real data from the API
@@ -99,7 +113,14 @@ function UserEditProfileChart({ username, title }) {
     };
     
     fetchUserEditProfile();
-  }, [selectedUsername, title]);
+  }, [currentUsername, title]);
+
+  const handleEditorChange = (selectedUser) => {
+    setCurrentUsername(selectedUser);
+    if (onEditorSelect) {
+      onEditorSelect(selectedUser);
+    }
+  };
 
   if (loading) {
     return (
@@ -124,7 +145,7 @@ function UserEditProfileChart({ username, title }) {
     );
   }
 
-  if (!selectedUsername || topEditors.length === 0) {
+  if (!currentUsername || availableEditors.length === 0) {
     return (
       <div className="p-6">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Editor Profile</h2>
@@ -252,13 +273,13 @@ function UserEditProfileChart({ username, title }) {
         </div>
         <div>
           <select 
-            value={selectedUsername}
-            onChange={(e) => setSelectedUsername(e.target.value)}
+            value={currentUsername}
+            onChange={(e) => handleEditorChange(e.target.value)}
             className="text-sm rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
           >
-            {topEditors.map(editor => (
-              <option key={editor.user} value={editor.user}>
-                {editor.user}
+            {availableEditors.map(editor => (
+              <option key={editor.user || editor.username} value={editor.user || editor.username}>
+                {editor.user || editor.username}
               </option>
             ))}
           </select>
@@ -271,7 +292,7 @@ function UserEditProfileChart({ username, title }) {
             <div className="bg-gray-50 rounded-lg p-4">
               <p className="text-xs text-gray-500">Username</p>
               <p className="text-lg font-bold text-gray-800 truncate">
-                {selectedUsername}
+                {currentUsername}
               </p>
             </div>
             <div className="bg-gray-50 rounded-lg p-4">
