@@ -17,12 +17,16 @@ const UserAccountAnalysis = ({ title }) => {
   });
   const [userEdits, setUserEdits] = useState({});
   const [expandedUsers, setExpandedUsers] = useState({});
+  const [loadingUsers, setLoadingUsers] = useState({});
 
   useEffect(() => {
     const fetchUserAccountData = async () => {
       try {
         const response = await api.get(`/api/user-account-analysis?title=${encodeURIComponent(title)}`);
         setAccountData(response.data);
+        
+        // Debug: Log the response to check for placeholder data
+        console.log('User Account Data Response:', response.data);
       } catch (error) {
         console.error('Error fetching user account data:', error);
         setAccountData(prev => ({ ...prev, loading: false }));
@@ -37,33 +41,56 @@ const UserAccountAnalysis = ({ title }) => {
   const fetchUserEdits = async (username) => {
     if (userEdits[username]) return userEdits[username]; // Already fetched
     
+    setLoadingUsers(prev => ({ ...prev, [username]: true }));
+    
     try {
-      // Fetch user's actual edit diffs for this article
+      // Debug: Log the API call being made
+      console.log(`Fetching edits for user: ${username}, article: ${title}`);
+      
       const response = await api.get(`/api/user/${encodeURIComponent(username)}/article-edits?title=${encodeURIComponent(title)}`);
+      
+      // Debug: Log the raw response for this specific user
+      console.log(`Raw edit response for ${username}:`, response.data);
+      
       if (response.data && response.data.edits) {
         const editData = {
           username: username,
           edits: response.data.edits || [],
-          totalEdits: response.data.totalEdits || 0
+          totalEdits: response.data.totalEdits || 0,
+          lastEdit: response.data.lastEdit || null,
+          accountCreated: response.data.accountCreated || null
         };
+        
+        // Debug: Log processed edit data
+        console.log(`Processed edit data for ${username}:`, editData);
+        
         setUserEdits(prev => ({
           ...prev,
           [username]: editData
         }));
+        
+        setLoadingUsers(prev => ({ ...prev, [username]: false }));
         return editData;
       }
     } catch (error) {
       console.error(`Error fetching edit diffs for ${username}:`, error);
-      // Set empty data on error - no mock fallback
+      
+      // Check if this is a 404 or if we're getting placeholder data
+      if (error.response) {
+        console.log(`API Error for ${username}:`, error.response.status, error.response.data);
+      }
+      
       const emptyEditData = {
         username: username,
         totalEdits: 0,
-        edits: []
+        edits: [],
+        error: true
       };
       setUserEdits(prev => ({
         ...prev,
         [username]: emptyEditData
       }));
+      setLoadingUsers(prev => ({ ...prev, [username]: false }));
       return emptyEditData;
     }
     return null;
@@ -127,6 +154,168 @@ const UserAccountAnalysis = ({ title }) => {
     }
   };
 
+  // Improved diff rendering component
+  const DiffRenderer = ({ edit, editIndex, title }) => {
+    const renderDiffLine = (line, type) => {
+      const getLineStyle = (type) => {
+        switch (type) {
+          case 'added':
+            return 'bg-green-50 border-l-4 border-green-400';
+          case 'removed':
+            return 'bg-red-50 border-l-4 border-red-400';
+          default:
+            return 'bg-gray-50 border-l-4 border-gray-300';
+        }
+      };
+
+      const getTextStyle = (type) => {
+        switch (type) {
+          case 'added':
+            return 'text-green-800';
+          case 'removed':
+            return 'text-red-800';
+          default:
+            return 'text-gray-700';
+        }
+      };
+
+      const getPrefix = (type) => {
+        switch (type) {
+          case 'added':
+            return '+';
+          case 'removed':
+            return '−';
+          default:
+            return ' ';
+        }
+      };
+
+      return (
+        <div className={`${getLineStyle(type)} px-3 py-1 font-mono text-sm`}>
+          <span className={`${getTextStyle(type)} select-none mr-2 font-bold`}>
+            {getPrefix(type)}
+          </span>
+          <span className={getTextStyle(type)}>
+            {line}
+          </span>
+        </div>
+      );
+    };
+
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-4">
+        {/* Edit Header - Clean Wikipedia Style */}
+        <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium text-gray-900">
+                {edit.revid ? `Revision ${edit.revid}` : `Edit #${editIndex + 1}`}
+              </div>
+              <div className="text-xs text-gray-600 mt-1">
+                {formatTimestamp(edit.timestamp)}
+              </div>
+            </div>
+            <div className="text-right">
+              {edit.size_change && (
+                <div className={`text-sm font-medium ${edit.size_change > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {edit.size_change > 0 ? '+' : ''}{edit.size_change.toLocaleString()} bytes
+                </div>
+              )}
+            </div>
+          </div>
+          {edit.comment && (
+            <div className="text-sm text-gray-700 mt-2 italic">
+              "{edit.comment}"
+            </div>
+          )}
+        </div>
+
+        {/* Diff Content - Wikipedia Style */}
+        <div className="bg-white">
+          {/* Check if we have actual diff data or if it's placeholder */}
+          {edit.diff_content && edit.diff_content.length > 0 ? (
+            <div className="divide-y divide-gray-100">
+              {edit.diff_content.map((section, sectionIndex) => (
+                <div key={sectionIndex} className="p-0">
+                  {section.context_before && section.context_before.map((line, lineIndex) => (
+                    <div key={`before-${lineIndex}`}>
+                      {renderDiffLine(line, 'context')}
+                    </div>
+                  ))}
+                  
+                  {section.removed && section.removed.map((line, lineIndex) => (
+                    <div key={`removed-${lineIndex}`}>
+                      {renderDiffLine(line, 'removed')}
+                    </div>
+                  ))}
+                  
+                  {section.added && section.added.map((line, lineIndex) => (
+                    <div key={`added-${lineIndex}`}>
+                      {renderDiffLine(line, 'added')}
+                    </div>
+                  ))}
+                  
+                  {section.context_after && section.context_after.map((line, lineIndex) => (
+                    <div key={`after-${lineIndex}`}>
+                      {renderDiffLine(line, 'context')}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          ) : (
+            // Fallback for legacy format or when diff_content is not available
+            <div className="p-4">
+              {/* Context/Unchanged Content */}
+              {edit.unchanged && edit.unchanged.length > 0 && (
+                <div className="mb-3">
+                  {edit.unchanged.map((unchanged, unchangedIndex) => (
+                    <div key={unchangedIndex}>
+                      {renderDiffLine(unchanged, 'context')}
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Deleted Content */}
+              {edit.deletions && edit.deletions.length > 0 && (
+                <div className="mb-3">
+                  {edit.deletions.map((deletion, delIndex) => (
+                    <div key={delIndex}>
+                      {renderDiffLine(deletion, 'removed')}
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* Added Content */}
+              {edit.additions && edit.additions.length > 0 && (
+                <div className="mb-3">
+                  {edit.additions.map((addition, addIndex) => (
+                    <div key={addIndex}>
+                      {renderDiffLine(addition, 'added')}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* If no diff data at all */}
+              {(!edit.unchanged || edit.unchanged.length === 0) && 
+               (!edit.deletions || edit.deletions.length === 0) && 
+               (!edit.additions || edit.additions.length === 0) && 
+               (!edit.diff_content || edit.diff_content.length === 0) && (
+                <div className="text-center py-8 text-gray-500">
+                  <div className="text-sm">No diff data available for this edit</div>
+                  <div className="text-xs mt-1">This might be placeholder data or an API issue</div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   if (accountData.loading) {
     return (
       <div className="p-6">
@@ -139,6 +328,18 @@ const UserAccountAnalysis = ({ title }) => {
 
   return (
     <div className="p-6 space-y-6">
+      {/* Debug Panel - Remove this in production */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="text-sm font-medium text-yellow-800 mb-2">Debug Info:</div>
+          <div className="text-xs text-yellow-700 space-y-1">
+            <div>Total Users Loaded: {accountData.newUsers.length + accountData.blockedUsers.length}</div>
+            <div>User Edits Cached: {Object.keys(userEdits).length}</div>
+            <div>API Title: {title}</div>
+          </div>
+        </div>
+      )}
+
       {/* Summary Statistics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-slate-50 rounded-lg p-4 text-center">
@@ -183,7 +384,7 @@ const UserAccountAnalysis = ({ title }) => {
           {expandedSections.newUsers && (
             <div className="px-4 pb-4 space-y-2">
               {accountData.newUsers.map((user, index) => (
-                <div key={index} className="bg-white rounded border border-red-200">
+                <div key={`new-user-${index}-${user.username}`} className="bg-white rounded border border-red-200">
                   <button
                     onClick={() => handleUserClick(user.username)}
                     className="w-full p-3 text-left hover:bg-red-25 transition-colors"
@@ -211,104 +412,61 @@ const UserAccountAnalysis = ({ title }) => {
                   </button>
                   
                   {expandedUsers[user.username] && userEdits[user.username] && (
-                    <div className="px-3 pb-3 border-t border-red-100 bg-red-25">
-                      <div className="mt-3 space-y-3">
-                        <div className="text-sm font-medium text-red-800 mb-2">
-                          Recent Activity:
-                        </div>
-                        <div className="text-xs text-red-600 mb-3">
-                          • {userEdits[user.username].totalEdits || 0} total edits on this article
-                        </div>
-                        <div className="text-xs text-red-600 mb-3">
-                          • Account created {getAccountAgeLabel(user.accountAge)}
-                        </div>
-                        <div className="text-xs text-red-600 mb-3">
-                          • Last edit: Recent activity detected
-                        </div>
-                        
-                        {/* Wikipedia-style Edit Diffs */}
-                        {userEdits[user.username].edits && userEdits[user.username].edits.map((edit, editIndex) => (
-                          <div key={editIndex} className="bg-white rounded border border-red-200 overflow-hidden">
-                            {/* Edit Header */}
-                            <div className="bg-slate-100 px-3 py-2 border-b border-red-200">
-                              <div className="text-xs font-medium text-slate-700">
-                                Edits on "{title}": {edit.revid ? `Revision ${edit.revid}` : `Edit #${editIndex + 1}`}
-                              </div>
-                              <div className="text-xs text-slate-600 mt-1">
-                                {formatTimestamp(edit.timestamp)} - {edit.comment || 'No edit summary'}
-                              </div>
-                              {edit.size_change && (
-                                <div className="text-xs text-slate-600 mt-1">
-                                  Size change: {edit.size_change > 0 ? '+' : ''}{edit.size_change} bytes
-                                </div>
-                              )}
+                    <div className="px-4 pb-4 border-t border-red-100 bg-red-25">
+                      <div className="mt-4 space-y-4">
+                        <div className="bg-white rounded-lg border border-red-200 p-4">
+                          <div className="text-sm font-medium text-red-800 mb-3">User Summary:</div>
+                          <div className="grid grid-cols-2 gap-4 text-xs">
+                            <div>
+                              <div className="text-red-600 font-medium">Total Edits:</div>
+                              <div className="text-red-800">{userEdits[user.username].totalEdits || 0}</div>
                             </div>
-                            
-                            <div className="p-3">
-                              {/* Context/Unchanged Content */}
-                              {edit.unchanged && edit.unchanged.length > 0 && (
-                                <div className="mb-3">
-                                  {edit.unchanged.map((unchanged, unchangedIndex) => (
-                                    <div key={unchangedIndex} className="bg-slate-50 border-l-4 border-slate-300 p-2 mb-1">
-                                      <span className="text-sm text-slate-700 font-mono text-xs">
-                                        {unchanged}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              
-                              {/* Deleted Content (Red highlighting like Wikipedia) */}
-                              {edit.deletions && edit.deletions.length > 0 && (
-                                <div className="mb-3">
-                                  <div className="text-xs font-medium text-slate-700 mb-2 flex items-center">
-                                    <span className="bg-red-200 text-red-800 px-2 py-1 rounded text-xs mr-2">−</span>
-                                    Removed content:
-                                  </div>
-                                  {edit.deletions.map((deletion, delIndex) => (
-                                    <div key={delIndex} className="bg-red-100 border-l-4 border-red-400 p-2 mb-1">
-                                      <span className="text-sm text-red-800 font-mono text-xs">
-                                        {deletion}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              
-                              {/* Added Content (Blue/Green highlighting like Wikipedia) */}
-                              {edit.additions && edit.additions.length > 0 && (
-                                <div className="mb-3">
-                                  <div className="text-xs font-medium text-slate-700 mb-2 flex items-center">
-                                    <span className="bg-blue-200 text-blue-800 px-2 py-1 rounded text-xs mr-2">+</span>
-                                    Added content:
-                                  </div>
-                                  {edit.additions.map((addition, addIndex) => (
-                                    <div key={addIndex} className="bg-blue-100 border-l-4 border-blue-400 p-2 mb-1">
-                                      <span className="text-sm text-blue-800 font-mono text-xs">
-                                        {addition}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+                            <div>
+                              <div className="text-red-600 font-medium">Account Age:</div>
+                              <div className="text-red-800">{getAccountAgeLabel(user.accountAge)}</div>
                             </div>
+                            {userEdits[user.username].lastEdit && (
+                              <div className="col-span-2">
+                                <div className="text-red-600 font-medium">Last Edit:</div>
+                                <div className="text-red-800">{formatTimestamp(userEdits[user.username].lastEdit)}</div>
+                              </div>
+                            )}
                           </div>
-                        ))}
+                        </div>
                         
-                        {(!userEdits[user.username].edits || userEdits[user.username].edits.length === 0) && (
-                          <div className="text-xs text-red-600 bg-white rounded p-3 border border-red-200">
-                            No detailed edit information available for this user.
+                        <div className="text-sm font-medium text-red-800 mb-3">Recent Edits:</div>
+                        
+                        {/* Improved Edit Diffs */}
+                        {userEdits[user.username].edits && userEdits[user.username].edits.length > 0 ? (
+                          userEdits[user.username].edits.map((edit, editIndex) => (
+                            <DiffRenderer 
+                              key={`edit-${editIndex}`}
+                              edit={edit} 
+                              editIndex={editIndex} 
+                              title={title} 
+                            />
+                          ))
+                        ) : (
+                          <div className="bg-white rounded-lg border border-red-200 p-6 text-center">
+                            <div className="text-red-600 text-sm">
+                              {userEdits[user.username].error 
+                                ? "Failed to load edit details - API error" 
+                                : "No detailed edit information available"}
+                            </div>
+                            <div className="text-red-500 text-xs mt-1">
+                              Check API response or user permissions
+                            </div>
                           </div>
                         )}
                       </div>
                     </div>
                   )}
                   
-                  {expandedUsers[user.username] && !userEdits[user.username] && (
+                  {expandedUsers[user.username] && loadingUsers[user.username] && (
                     <div className="px-3 pb-3 border-t border-red-100">
-                      <div className="text-xs text-red-600 mt-2 flex items-center">
-                        <div className="animate-spin rounded-full h-3 w-3 border-b border-red-600 mr-2"></div>
-                        Loading edit details...
+                      <div className="text-xs text-red-600 mt-2 flex items-center justify-center py-4">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600 mr-2"></div>
+                        Loading edit details for {user.username}...
                       </div>
                     </div>
                   )}
@@ -319,7 +477,7 @@ const UserAccountAnalysis = ({ title }) => {
         </div>
       )}
 
-      {/* Blocked Users */}
+      {/* Blocked Users - Similar improvements */}
       {accountData.blockedUsers.length > 0 && (
         <div className="bg-slate-50 border border-slate-200 rounded-lg">
           <button
@@ -343,7 +501,7 @@ const UserAccountAnalysis = ({ title }) => {
           {expandedSections.blockedUsers && (
             <div className="px-4 pb-4 space-y-2">
               {accountData.blockedUsers.map((user, index) => (
-                <div key={index} className="bg-white rounded border border-slate-200">
+                <div key={`blocked-user-${index}-${user.username}`} className="bg-white rounded border border-slate-200">
                   <button
                     onClick={() => handleUserClick(user.username)}
                     className="w-full p-3 text-left hover:bg-slate-50 transition-colors"
@@ -370,101 +528,51 @@ const UserAccountAnalysis = ({ title }) => {
                   </button>
                   
                   {expandedUsers[user.username] && userEdits[user.username] && (
-                    <div className="px-3 pb-3 border-t border-slate-100 bg-slate-25">
-                      <div className="mt-3 space-y-3">
-                        <div className="text-sm font-medium text-slate-800 mb-2">
-                          Recent Activity:
-                        </div>
-                        <div className="text-xs text-slate-600 mb-3">
-                          • {userEdits[user.username].totalEdits || 0} total edits on this article
-                        </div>
-                        <div className="text-xs text-slate-600 mb-3">
-                          • User currently blocked
-                        </div>
-                        
-                        {/* Wikipedia-style Edit Diffs */}
-                        {userEdits[user.username].edits && userEdits[user.username].edits.map((edit, editIndex) => (
-                          <div key={editIndex} className="bg-white rounded border border-slate-200 overflow-hidden">
-                            {/* Edit Header */}
-                            <div className="bg-slate-100 px-3 py-2 border-b border-slate-200">
-                              <div className="text-xs font-medium text-slate-700">
-                                Edits on "{title}": {edit.revid ? `Revision ${edit.revid}` : `Edit #${editIndex + 1}`}
-                              </div>
-                              <div className="text-xs text-slate-600 mt-1">
-                                {formatTimestamp(edit.timestamp)} - {edit.comment || 'No edit summary'}
-                              </div>
-                              {edit.size_change && (
-                                <div className="text-xs text-slate-600 mt-1">
-                                  Size change: {edit.size_change > 0 ? '+' : ''}{edit.size_change} bytes
-                                </div>
-                              )}
+                    <div className="px-4 pb-4 border-t border-slate-100 bg-slate-25">
+                      <div className="mt-4 space-y-4">
+                        <div className="bg-white rounded-lg border border-slate-200 p-4">
+                          <div className="text-sm font-medium text-slate-800 mb-3">User Summary:</div>
+                          <div className="grid grid-cols-2 gap-4 text-xs">
+                            <div>
+                              <div className="text-slate-600 font-medium">Total Edits:</div>
+                              <div className="text-slate-800">{userEdits[user.username].totalEdits || 0}</div>
                             </div>
-                            
-                            <div className="p-3">
-                              {/* Context/Unchanged Content */}
-                              {edit.unchanged && edit.unchanged.length > 0 && (
-                                <div className="mb-3">
-                                  {edit.unchanged.map((unchanged, unchangedIndex) => (
-                                    <div key={unchangedIndex} className="bg-slate-50 border-l-4 border-slate-300 p-2 mb-1">
-                                      <span className="text-sm text-slate-700 font-mono text-xs">
-                                        {unchanged}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              
-                              {/* Deleted Content (Red highlighting like Wikipedia) */}
-                              {edit.deletions && edit.deletions.length > 0 && (
-                                <div className="mb-3">
-                                  <div className="text-xs font-medium text-slate-700 mb-2 flex items-center">
-                                    <span className="bg-red-200 text-red-800 px-2 py-1 rounded text-xs mr-2">−</span>
-                                    Removed content:
-                                  </div>
-                                  {edit.deletions.map((deletion, delIndex) => (
-                                    <div key={delIndex} className="bg-red-100 border-l-4 border-red-400 p-2 mb-1">
-                                      <span className="text-sm text-red-800 font-mono text-xs">
-                                        {deletion}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                              
-                              {/* Added Content (Blue/Green highlighting like Wikipedia) */}
-                              {edit.additions && edit.additions.length > 0 && (
-                                <div className="mb-3">
-                                  <div className="text-xs font-medium text-slate-700 mb-2 flex items-center">
-                                    <span className="bg-blue-200 text-blue-800 px-2 py-1 rounded text-xs mr-2">+</span>
-                                    Added content:
-                                  </div>
-                                  {edit.additions.map((addition, addIndex) => (
-                                    <div key={addIndex} className="bg-blue-100 border-l-4 border-blue-400 p-2 mb-1">
-                                      <span className="text-sm text-blue-800 font-mono text-xs">
-                                        {addition}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
+                            <div>
+                              <div className="text-slate-600 font-medium">Status:</div>
+                              <div className="text-red-600 font-medium">Currently Blocked</div>
                             </div>
                           </div>
-                        ))}
+                        </div>
                         
-                        {(!userEdits[user.username].edits || userEdits[user.username].edits.length === 0) && (
-                          <div className="text-xs text-slate-600 bg-white rounded p-3 border border-slate-200">
-                            No detailed edit information available for this user.
+                        <div className="text-sm font-medium text-slate-800 mb-3">Recent Edits:</div>
+                        
+                        {userEdits[user.username].edits && userEdits[user.username].edits.length > 0 ? (
+                          userEdits[user.username].edits.map((edit, editIndex) => (
+                            <DiffRenderer 
+                              key={`blocked-edit-${editIndex}`}
+                              edit={edit} 
+                              editIndex={editIndex} 
+                              title={title} 
+                            />
+                          ))
+                        ) : (
+                          <div className="bg-white rounded-lg border border-slate-200 p-6 text-center">
+                            <div className="text-slate-600 text-sm">
+                              {userEdits[user.username].error 
+                                ? "Failed to load edit details - API error" 
+                                : "No detailed edit information available"}
+                            </div>
                           </div>
                         )}
                       </div>
                     </div>
                   )}
                   
-                  {expandedUsers[user.username] && !userEdits[user.username] && (
+                  {expandedUsers[user.username] && loadingUsers[user.username] && (
                     <div className="px-3 pb-3 border-t border-slate-100">
-                      <div className="text-xs text-slate-600 mt-2 flex items-center">
-                        <div className="animate-spin rounded-full h-3 w-3 border-b border-slate-600 mr-2"></div>
-                        Loading edit details...
+                      <div className="text-xs text-slate-600 mt-2 flex items-center justify-center py-4">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-600 mr-2"></div>
+                        Loading edit details for {user.username}...
                       </div>
                     </div>
                   )}
@@ -498,7 +606,7 @@ const UserAccountAnalysis = ({ title }) => {
         {expandedSections.accountAges && (
           <div className="px-4 pb-4 space-y-2">
             {accountData.accountAges.slice(0, 8).map((user, index) => (
-              <div key={index} className="bg-slate-50 rounded p-3">
+              <div key={`age-user-${index}-${user.username}`} className="bg-slate-50 rounded p-3">
                 <div className="flex items-center justify-between">
                   <div className="flex flex-col">
                     <span className="font-medium text-slate-700">{user.username}</span>
