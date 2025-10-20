@@ -1,17 +1,4 @@
-{/* Charts Grid - Show individual components with their own loading states */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="bg-white backdrop-blur-lg bg-opacity-90 shadow-xl rounded-xl overflow-hidden border border-slate-100">
-                <div className="border-b border-slate-100 px-6 py-4">
-                  <h2 className="text-lg font-semibold text-slate-800">Pageviews Trend</h2>
-                </div>
-                <PageviewsChart title={title} />
-              </div>
-              
-              <div className="bg-white backdrop-blur-lg bg-opacity-90 shadow-xl rounded-xl overflow-hidden border border-slate-100">
-                <div className="border-b border-slate-100 px-6 py-4">
-                  <h2 className="text-lg font-semibold text-slate-800">Edit Activity</h2>
-                </div>
-                <EditTimelineChart title={title} editData={dashboardData.editData?.import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom'
 import SearchBar from './components/SearchBar'
 import ArticleSummary from './components/ArticleSummary'
@@ -307,19 +294,9 @@ function Dashboard() {
                 </div>
                 <RiskAssessmentCard title={title} />
               </div>
-            )} Widget */}
-            <div className="bg-white backdrop-blur-lg bg-opacity-90 shadow-xl rounded-xl overflow-hidden mb-10 border border-slate-100">
-              <div className="border-b border-slate-100 px-6 py-4 bg-gradient-to-r from-slate-50 to-slate-100">
-                <h2 className="text-lg font-semibold text-slate-800 flex items-center">
-                  <svg className="w-6 h-6 mr-2 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-                  </svg>
-                  Editor Account Security Analysis
-                </h2>
-              </div>
-              <UserAccountAnalysis title={title} />
-            </div>
-            {/* User Account Analysis Widget */}
+            )}
+
+            {/* User Account Analysis Widget - SINGLE INSTANCE */}
             <div className="bg-white backdrop-blur-lg bg-opacity-90 shadow-xl rounded-xl overflow-hidden mb-10 border border-slate-100">
               <div className="border-b border-slate-100 px-6 py-4 bg-gradient-to-r from-slate-50 to-slate-100">
                 <h2 className="text-lg font-semibold text-slate-800 flex items-center">
