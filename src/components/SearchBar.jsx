@@ -51,7 +51,7 @@ function SearchBar({ title, onSearch }) {
             onChange={(e) => setInput(e.target.value)}
             onFocus={() => setIsFocused(true)}
             onBlur={() => setIsFocused(false)}
-            placeholder="Enter Wikipedia article title or paste URL..."
+            placeholder="Paste Wikipedia URL..."
             aria-label="Search Wikipedia articles"
             className={`w-full px-12 py-4 border ${
               isFocused ? 'border-indigo-500 ring-4 ring-indigo-100' : 'border-slate-200'
