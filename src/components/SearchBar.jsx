@@ -89,7 +89,7 @@ function SearchBar({ title, onSearch }) {
         </div>
       </form>
       <div className="mt-3 text-xs text-slate-400 text-center">
-        Try: ChatGPT, JavaScript, Artificial intelligence, Climate change
+        Paste hyperlinks for eg: DonaldTrump, Artificial intelligence, Climate Change
       </div>
     </div>
   )
