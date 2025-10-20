@@ -16,6 +16,7 @@ import api from './utils/api'
 import AboutPage from './pages/AboutPage'
 import HowToUsePage from './pages/HowToUsePage'
 import PrivacyPage from './pages/PrivacyPage'
+import UserNetworkPage from './pages/UserNetworkPage'
 
 function Dashboard() {
   const [title, setTitle] = useState('Donald Trump')
@@ -398,6 +399,7 @@ function App() {
               
               <div className="hidden md:flex space-x-6 text-slate-300">
                 <Link to="/" className="hover:text-white transition-colors">Dashboard</Link>
+                <Link to="/user-network" className="hover:text-white transition-colors">User Network</Link>
                 <Link to="/about" className="hover:text-white transition-colors">About</Link>
                 <Link to="/how-to-use" className="hover:text-white transition-colors">How to Use</Link>
                 <Link to="/privacy" className="hover:text-white transition-colors">Privacy</Link>
@@ -417,6 +419,7 @@ function App() {
         <div className="flex-grow">
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/user-network" element={<UserNetworkPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/how-to-use" element={<HowToUsePage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
@@ -447,6 +450,7 @@ function App() {
               </div>
               <div className="flex space-x-6">
                 <Link to="/about" className="text-sm text-slate-400 hover:text-white transition-colors">About</Link>
+                <Link to="/user-network" className="text-sm text-slate-400 hover:text-white transition-colors">User Network</Link>
                 <Link to="/how-to-use" className="text-sm text-slate-400 hover:text-white transition-colors">How to Use</Link>
                 <Link to="/privacy" className="text-sm text-slate-400 hover:text-white transition-colors">Privacy</Link>
               </div>
