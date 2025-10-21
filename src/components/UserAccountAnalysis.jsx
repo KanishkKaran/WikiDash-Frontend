@@ -900,25 +900,6 @@ const UserAccountAnalysis = ({ title }) => {
         </div>
       )}
 
-      {/* Data Quality Notice */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-        <div className="flex items-start">
-          <svg className="w-4 h-4 text-gray-500 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <div className="text-xs text-gray-600">
-            <div className="font-medium text-gray-700 mb-1">Data Quality Information</div>
-            <div className="space-y-1">
-              <div>• Analysis includes only main article namespace edits (excludes talk pages, user pages, etc.)</div>
-              <div>• Content changes are filtered to show meaningful text additions and removals</div>
-              <div>• Minor edits like typo fixes, formatting, and administrative changes are excluded</div>
-              <div>• User account data is sourced from Wikipedia's public API and user registration records</div>
-              <div>• Click on any user to see detailed content analysis and edit history</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* Performance Notice */}
       {(accountData.newUsers.length > 20 || accountData.blockedUsers.length > 20) && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
