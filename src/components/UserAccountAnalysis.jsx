@@ -133,6 +133,20 @@ const UserAccountAnalysis = ({ title }) => {
     }
   };
 
+  // Helper function to truncate long text
+  const truncateText = (text, maxLength = 100) => {
+    if (!text) return '';
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+  };
+
+  // Helper function to truncate username
+  const truncateUsername = (username, maxLength = 20) => {
+    if (!username) return '';
+    if (username.length <= maxLength) return username;
+    return username.substring(0, maxLength) + '...';
+  };
+
   const toggleSection = (section) => {
     setExpandedSections(prev => ({
       ...prev,
@@ -199,23 +213,23 @@ const UserAccountAnalysis = ({ title }) => {
     const isExpanded = expandedEditDetails[detailKey];
 
     return (
-      <div className="bg-white rounded border border-gray-200 mb-2">
+      <div className="bg-white rounded border border-gray-200 mb-2 overflow-hidden">
         {/* Compact Edit Header - Always Visible */}
         <button
           onClick={() => toggleEditDetails(username, editIndex)}
           className="w-full p-3 text-left hover:bg-gray-50 transition-colors"
         >
           <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-3">
-                <div className="text-sm font-medium text-gray-900">
+            <div className="flex-1 min-w-0 pr-3">
+              <div className="flex items-center gap-3 mb-1">
+                <div className="text-sm font-medium text-gray-900 flex-shrink-0">
                   Rev {edit.revid || `#${editIndex + 1}`}
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-gray-500 flex-shrink-0">
                   {formatTimestamp(edit.timestamp)}
                 </div>
                 {edit.size_change && (
-                  <div className={`text-xs font-medium px-2 py-1 rounded ${
+                  <div className={`text-xs font-medium px-2 py-1 rounded flex-shrink-0 ${
                     edit.size_change > 0 
                       ? 'bg-green-100 text-green-700' 
                       : 'bg-red-100 text-red-700'
@@ -225,13 +239,13 @@ const UserAccountAnalysis = ({ title }) => {
                 )}
               </div>
               {edit.comment && (
-                <div className="text-xs text-gray-600 mt-1 truncate">
-                  "{edit.comment}"
+                <div className="text-xs text-gray-600 truncate" title={edit.comment}>
+                  "{truncateText(edit.comment, 80)}"
                 </div>
               )}
             </div>
             <svg 
-              className={`w-4 h-4 text-gray-500 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+              className={`w-4 h-4 text-gray-500 transform transition-transform flex-shrink-0 ${isExpanded ? 'rotate-180' : ''}`}
               fill="none" 
               stroke="currentColor" 
               viewBox="0 0 24 24"
@@ -248,12 +262,12 @@ const UserAccountAnalysis = ({ title }) => {
               {/* Edit Summary */}
               <div className="bg-white rounded p-3 border">
                 <div className="text-xs font-medium text-gray-700 mb-2">Edit Summary:</div>
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  <div className="break-words">
                     <span className="text-gray-600">Revision ID:</span>
                     <span className="ml-2 font-mono">{edit.revid || 'N/A'}</span>
                   </div>
-                  <div>
+                  <div className="break-words">
                     <span className="text-gray-600">Size Change:</span>
                     <span className={`ml-2 font-medium ${
                       edit.size_change > 0 ? 'text-green-600' : 'text-red-600'
@@ -261,9 +275,9 @@ const UserAccountAnalysis = ({ title }) => {
                       {edit.size_change ? `${edit.size_change > 0 ? '+' : ''}${edit.size_change} bytes` : 'N/A'}
                     </span>
                   </div>
-                  <div className="col-span-2">
+                  <div className="col-span-1 md:col-span-2 break-words">
                     <span className="text-gray-600">Comment:</span>
-                    <span className="ml-2">{edit.comment || 'No edit summary'}</span>
+                    <span className="ml-2 break-words">{edit.comment || 'No edit summary'}</span>
                   </div>
                 </div>
               </div>
@@ -276,20 +290,23 @@ const UserAccountAnalysis = ({ title }) => {
                   </div>
                   <div className="max-h-48 overflow-y-auto">
                     {edit.unchanged && edit.unchanged.map((line, index) => (
-                      <div key={`unchanged-${index}`} className="px-3 py-1 text-xs font-mono text-gray-600 border-l-2 border-gray-300">
-                        <span className="text-gray-400 mr-2"> </span>{line}
+                      <div key={`unchanged-${index}`} className="px-3 py-1 text-xs font-mono text-gray-600 border-l-2 border-gray-300 break-words">
+                        <span className="text-gray-400 mr-2"> </span>
+                        <span className="break-all">{line}</span>
                       </div>
                     ))}
                     
                     {edit.deletions && edit.deletions.map((line, index) => (
-                      <div key={`deletion-${index}`} className="px-3 py-1 text-xs font-mono bg-red-50 text-red-800 border-l-2 border-red-400">
-                        <span className="text-red-600 mr-2">−</span>{line}
+                      <div key={`deletion-${index}`} className="px-3 py-1 text-xs font-mono bg-red-50 text-red-800 border-l-2 border-red-400 break-words">
+                        <span className="text-red-600 mr-2">−</span>
+                        <span className="break-all">{line}</span>
                       </div>
                     ))}
                     
                     {edit.additions && edit.additions.map((line, index) => (
-                      <div key={`addition-${index}`} className="px-3 py-1 text-xs font-mono bg-green-50 text-green-800 border-l-2 border-green-400">
-                        <span className="text-green-600 mr-2">+</span>{line}
+                      <div key={`addition-${index}`} className="px-3 py-1 text-xs font-mono bg-green-50 text-green-800 border-l-2 border-green-400 break-words">
+                        <span className="text-green-600 mr-2">+</span>
+                        <span className="break-all">{line}</span>
                       </div>
                     ))}
                   </div>
@@ -309,7 +326,7 @@ const UserAccountAnalysis = ({ title }) => {
                   Raw Edit Data
                 </summary>
                 <div className="px-3 pb-3 border-t bg-gray-50">
-                  <pre className="text-xs overflow-x-auto font-mono mt-2 p-2 bg-white rounded border">
+                  <pre className="text-xs overflow-x-auto font-mono mt-2 p-2 bg-white rounded border whitespace-pre-wrap break-words">
                     {JSON.stringify(edit, null, 2)}
                   </pre>
                 </div>
@@ -378,17 +395,19 @@ const UserAccountAnalysis = ({ title }) => {
             <div className="px-4 pb-4">
               <div className="space-y-2">
                 {accountData.newUsers.slice(0, showMoreStates.newUsers).map((user, index) => (
-                  <div key={`new-user-${index}-${user.username}`} className="bg-white rounded border border-red-200">
+                  <div key={`new-user-${index}-${user.username}`} className="bg-white rounded border border-red-200 overflow-hidden">
                     <button
                       onClick={() => handleUserClick(user.username)}
                       className="w-full p-3 text-left hover:bg-red-25 transition-colors"
                     >
                       <div className="flex items-center justify-between">
-                        <div className="flex flex-col">
-                          <span className="font-medium text-red-800">{user.username}</span>
+                        <div className="flex flex-col flex-1 min-w-0 pr-3">
+                          <span className="font-medium text-red-800 truncate" title={user.username}>
+                            {truncateUsername(user.username)}
+                          </span>
                           <span className="text-xs text-red-600">Created {formatCreationDate(user.accountAge)}</span>
                         </div>
-                        <div className="flex items-center">
+                        <div className="flex items-center flex-shrink-0">
                           <div className="text-right mr-2">
                             <div className="text-sm font-medium text-red-700">{user.editCount} edits</div>
                             <div className="text-xs text-red-500">{getAccountAgeLabel(user.accountAge)}</div>
@@ -433,7 +452,7 @@ const UserAccountAnalysis = ({ title }) => {
                                 {userEdits[user.username].edits.length > 3 && (
                                   <button
                                     onClick={() => toggleShowAllEdits(user.username)}
-                                    className="text-xs text-red-600 hover:text-red-800 font-medium"
+                                    className="text-xs text-red-600 hover:text-red-800 font-medium flex-shrink-0"
                                   >
                                     {showAllEdits[user.username] 
                                       ? 'Show Less' 
@@ -506,7 +525,7 @@ const UserAccountAnalysis = ({ title }) => {
         </div>
       )}
 
-      {/* Blocked Users - Similar structure */}
+      {/* Blocked Users - Similar structure with overflow fixes */}
       {accountData.blockedUsers.length > 0 && (
         <div className="bg-slate-50 border border-slate-200 rounded-lg">
           <button
@@ -531,19 +550,21 @@ const UserAccountAnalysis = ({ title }) => {
             <div className="px-4 pb-4">
               <div className="space-y-2">
                 {accountData.blockedUsers.slice(0, showMoreStates.blockedUsers).map((user, index) => (
-                  <div key={`blocked-user-${index}-${user.username}`} className="bg-white rounded border border-slate-200">
+                  <div key={`blocked-user-${index}-${user.username}`} className="bg-white rounded border border-slate-200 overflow-hidden">
                     <button
                       onClick={() => handleUserClick(user.username)}
                       className="w-full p-3 text-left hover:bg-slate-50 transition-colors"
                     >
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <span className="font-medium text-slate-800">{user.username}</span>
-                          <span className="ml-2 px-2 py-1 bg-slate-200 text-slate-700 rounded text-xs">
+                        <div className="flex items-center flex-1 min-w-0 pr-3">
+                          <span className="font-medium text-slate-800 truncate" title={user.username}>
+                            {truncateUsername(user.username)}
+                          </span>
+                          <span className="ml-2 px-2 py-1 bg-slate-200 text-slate-700 rounded text-xs flex-shrink-0">
                             Blocked
                           </span>
                         </div>
-                        <div className="flex items-center">
+                        <div className="flex items-center flex-shrink-0">
                           <span className="text-sm text-slate-600 mr-2">{user.editCount} edits</span>
                           <svg 
                             className={`w-4 h-4 text-slate-600 transform transition-transform ${expandedUsers[user.username] ? 'rotate-180' : ''}`}
@@ -583,7 +604,7 @@ const UserAccountAnalysis = ({ title }) => {
                                 {userEdits[user.username].edits.length > 3 && (
                                   <button
                                     onClick={() => toggleShowAllEdits(user.username)}
-                                    className="text-xs text-slate-600 hover:text-slate-800 font-medium"
+                                    className="text-xs text-slate-600 hover:text-slate-800 font-medium flex-shrink-0"
                                   >
                                     {showAllEdits[user.username] 
                                       ? 'Show Less' 
@@ -679,13 +700,15 @@ const UserAccountAnalysis = ({ title }) => {
           <div className="px-4 pb-4">
             <div className="space-y-2">
               {accountData.accountAges.slice(0, showMoreStates.accountAges).map((user, index) => (
-                <div key={`age-user-${index}-${user.username}`} className="bg-slate-50 rounded p-3">
+                <div key={`age-user-${index}-${user.username}`} className="bg-slate-50 rounded p-3 overflow-hidden">
                   <div className="flex items-center justify-between">
-                    <div className="flex flex-col">
-                      <span className="font-medium text-slate-700">{user.username}</span>
+                    <div className="flex flex-col flex-1 min-w-0 pr-3">
+                      <span className="font-medium text-slate-700 truncate" title={user.username}>
+                        {truncateUsername(user.username)}
+                      </span>
                       <span className="text-xs text-slate-500">Created {formatCreationDate(user.accountAge)}</span>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex-shrink-0">
                       <div className="text-sm text-slate-600">{getAccountAgeLabel(user.accountAge)}</div>
                       <div className="text-xs text-slate-500">{user.editCount} edits</div>
                     </div>
