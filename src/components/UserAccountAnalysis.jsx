@@ -18,6 +18,15 @@ const UserAccountAnalysis = ({ title }) => {
   const [userEdits, setUserEdits] = useState({});
   const [expandedUsers, setExpandedUsers] = useState({});
   const [loadingUsers, setLoadingUsers] = useState({});
+  
+  // New state for managing pagination and edit details
+  const [showMoreStates, setShowMoreStates] = useState({
+    newUsers: 10,
+    blockedUsers: 10,
+    accountAges: 8
+  });
+  const [expandedEditDetails, setExpandedEditDetails] = useState({});
+  const [showAllEdits, setShowAllEdits] = useState({});
 
   useEffect(() => {
     const fetchUserAccountData = async () => {
@@ -25,7 +34,6 @@ const UserAccountAnalysis = ({ title }) => {
         const response = await api.get(`/api/user-account-analysis?title=${encodeURIComponent(title)}`);
         setAccountData(response.data);
         
-        // Debug: Log the response to check for placeholder data
         console.log('User Account Data Response:', response.data);
       } catch (error) {
         console.error('Error fetching user account data:', error);
@@ -41,97 +49,26 @@ const UserAccountAnalysis = ({ title }) => {
   const fetchUserEdits = async (username) => {
     if (userEdits[username]) {
       console.log(`Already cached edits for ${username}`);
-      return userEdits[username]; // Already fetched
+      return userEdits[username];
     }
     
     setLoadingUsers(prev => ({ ...prev, [username]: true }));
     
     try {
-      // Debug: Log the exact API call being made
       const apiUrl = `/api/user/${encodeURIComponent(username)}/article-edits?title=${encodeURIComponent(title)}`;
       console.log(`\nFetching edits for user: ${username}`);
-      console.log(`API URL: ${window.location.origin}${apiUrl}`);
-      console.log(`Username Parameter: "${username}"`);
-      console.log(`Article Parameter: "${title}"`);
       
       const response = await api.get(apiUrl);
       
-      // Debug: Check if API is returning user-specific data
-      console.log(`API Response for ${username}:`);
-      console.log(`Status: ${response.status}`);
-      console.log(`Request URL: ${response.config?.url}`);
-      console.log(`Response Headers:`, response.headers);
-      console.log(`Full Response Data:`, JSON.stringify(response.data, null, 2));
-      
-      // CRITICAL: Check if the API is actually using the username parameter
-      if (response.data) {
-        console.log(`\nResponse Analysis for ${username}:`);
-        console.log(`Response contains username field:`, !!response.data.username);
-        console.log(`Response username value:`, response.data.username);
-        console.log(`Does response username match request:`, response.data.username === username);
-        console.log(`Response contains edits:`, !!response.data.edits);
-        console.log(`Number of edits:`, response.data.edits?.length || 0);
-        
-        // Log first few edit details to identify if they're user-specific
-        if (response.data.edits && response.data.edits.length > 0) {
-          console.log(`First edit details:`, {
-            revid: response.data.edits[0].revid,
-            timestamp: response.data.edits[0].timestamp,
-            comment: response.data.edits[0].comment,
-            size_change: response.data.edits[0].size_change
-          });
-        }
-      }
-      
-      // Critical check: Does the response actually contain this username?
-      if (response.data && response.data.username && response.data.username !== username) {
-        console.error(`API Error: Requested username "${username}" but received username "${response.data.username}"`);
-        console.error(`This indicates the API is not respecting the username parameter`);
-      }
-      
       if (response.data && response.data.edits) {
-        // Generate a unique signature for this edit set
-        const editSignature = response.data.edits.map(edit => `${edit.revid}-${edit.timestamp}`).join('|');
-        
-        console.log(`\nDuplicate Check for ${username}:`);
-        console.log(`Edit signature for ${username}: ${editSignature.substring(0, 100)}...`);
-        
-        // Check against all existing users
-        const duplicateUsers = [];
-        Object.entries(userEdits).forEach(([existingUser, existingData]) => {
-          if (existingData.edits && existingData.edits.length > 0) {
-            const existingSignature = existingData.edits.map(edit => `${edit.revid}-${edit.timestamp}`).join('|');
-            if (editSignature === existingSignature && editSignature !== '') {
-              duplicateUsers.push(existingUser);
-            }
-          }
-        });
-        
-        if (duplicateUsers.length > 0) {
-          console.error(`Duplicate Edits Detected: ${username} has identical edits to: ${duplicateUsers.join(', ')}`);
-          console.error(`This confirms the API issue - same data returned for different users`);
-          console.error(`Backend endpoint is not filtering by username correctly`);
-        } else {
-          console.log(`Verified: ${username} has unique edit data`);
-        }
-        
         const editData = {
           username: username,
           edits: response.data.edits || [],
           totalEdits: response.data.totalEdits || 0,
           lastEdit: response.data.lastEdit || null,
           accountCreated: response.data.accountCreated || null,
-          fetchedAt: new Date().toISOString(),
-          apiUrl: apiUrl,
-          editSignature: editSignature,
-          responseUsername: response.data.username || 'not provided'
+          fetchedAt: new Date().toISOString()
         };
-        
-        console.log(`Stored Data for ${username}:`);
-        console.log(`Stored username: ${editData.username}`);
-        console.log(`Total edits: ${editData.totalEdits}`);
-        console.log(`Edits array length: ${editData.edits.length}`);
-        console.log(`Signature: ${editData.editSignature.substring(0, 50)}...`);
         
         setUserEdits(prev => ({
           ...prev,
@@ -140,17 +77,9 @@ const UserAccountAnalysis = ({ title }) => {
         
         setLoadingUsers(prev => ({ ...prev, [username]: false }));
         return editData;
-      } else {
-        console.warn(`No edits data in response for ${username}:`, response.data);
       }
     } catch (error) {
       console.error(`Error for ${username}:`, error);
-      
-      if (error.response) {
-        console.log(`Error status: ${error.response.status}`);
-        console.log(`Error data:`, error.response.data);
-        console.log(`Error URL:`, error.response.config?.url);
-      }
       
       const emptyEditData = {
         username: username,
@@ -213,13 +142,11 @@ const UserAccountAnalysis = ({ title }) => {
 
   const handleUserClick = async (username) => {
     if (expandedUsers[username]) {
-      // Collapse
       setExpandedUsers(prev => ({
         ...prev,
         [username]: false
       }));
     } else {
-      // Expand and fetch edits
       setExpandedUsers(prev => ({
         ...prev,
         [username]: true
@@ -228,192 +155,168 @@ const UserAccountAnalysis = ({ title }) => {
     }
   };
 
-  // Real edit content renderer - shows actual API data
-  const DiffRenderer = ({ edit, editIndex, title }) => {
-    // Debug: Log what we actually have from the API
-    console.log(`Edit data for ${editIndex}:`, edit);
+  // Handle show more functionality
+  const handleShowMore = (section) => {
+    setShowMoreStates(prev => ({
+      ...prev,
+      [section]: prev[section] + 10
+    }));
+  };
 
-    const renderDiffLine = (line, type) => {
-      const getLineStyle = (type) => {
-        switch (type) {
-          case 'added':
-            return 'bg-green-50 border-l-4 border-green-400';
-          case 'removed':
-            return 'bg-red-50 border-l-4 border-red-400';
-          default:
-            return 'bg-gray-50 border-l-4 border-gray-300';
-        }
-      };
-
-      const getTextStyle = (type) => {
-        switch (type) {
-          case 'added':
-            return 'text-green-800';
-          case 'removed':
-            return 'text-red-800';
-          default:
-            return 'text-gray-700';
-        }
-      };
-
-      const getPrefix = (type) => {
-        switch (type) {
-          case 'added':
-            return '+';
-          case 'removed':
-            return '−';
-          default:
-            return ' ';
-        }
-      };
-
-      return (
-        <div className={`${getLineStyle(type)} px-3 py-2 font-mono text-sm leading-relaxed`}>
-          <span className={`${getTextStyle(type)} select-none mr-3 font-bold w-4 inline-block`}>
-            {getPrefix(type)}
-          </span>
-          <span className={getTextStyle(type)} style={{ wordBreak: 'break-word' }}>
-            {line}
-          </span>
-        </div>
-      );
+  const handleShowAll = (section) => {
+    const maxCount = {
+      newUsers: accountData.newUsers.length,
+      blockedUsers: accountData.blockedUsers.length,
+      accountAges: accountData.accountAges.length
     };
+    
+    setShowMoreStates(prev => ({
+      ...prev,
+      [section]: maxCount[section]
+    }));
+  };
+
+  // Toggle edit details visibility
+  const toggleEditDetails = (username, editIndex) => {
+    const key = `${username}-${editIndex}`;
+    setExpandedEditDetails(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  // Toggle show all edits for a user
+  const toggleShowAllEdits = (username) => {
+    setShowAllEdits(prev => ({
+      ...prev,
+      [username]: !prev[username]
+    }));
+  };
+
+  // Compact Edit Renderer - shows basic info with expandable details
+  const CompactEditRenderer = ({ edit, editIndex, username, title }) => {
+    const detailKey = `${username}-${editIndex}`;
+    const isExpanded = expandedEditDetails[detailKey];
 
     return (
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden mb-4">
-        {/* Edit Header */}
-        <div className="bg-gray-100 px-4 py-3 border-b border-gray-200">
+      <div className="bg-white rounded border border-gray-200 mb-2">
+        {/* Compact Edit Header - Always Visible */}
+        <button
+          onClick={() => toggleEditDetails(username, editIndex)}
+          className="w-full p-3 text-left hover:bg-gray-50 transition-colors"
+        >
           <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium text-gray-900">
-                {edit.revid ? `Revision ${edit.revid}` : `Edit #${editIndex + 1}`}
+            <div className="flex-1">
+              <div className="flex items-center gap-3">
+                <div className="text-sm font-medium text-gray-900">
+                  Rev {edit.revid || `#${editIndex + 1}`}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {formatTimestamp(edit.timestamp)}
+                </div>
+                {edit.size_change && (
+                  <div className={`text-xs font-medium px-2 py-1 rounded ${
+                    edit.size_change > 0 
+                      ? 'bg-green-100 text-green-700' 
+                      : 'bg-red-100 text-red-700'
+                  }`}>
+                    {edit.size_change > 0 ? '+' : ''}{edit.size_change} bytes
+                  </div>
+                )}
               </div>
-              <div className="text-xs text-gray-600 mt-1">
-                {formatTimestamp(edit.timestamp)}
-              </div>
-            </div>
-            <div className="text-right">
-              {edit.size_change && (
-                <div className={`text-sm font-medium ${edit.size_change > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {edit.size_change > 0 ? '+' : ''}{edit.size_change.toLocaleString()} bytes
+              {edit.comment && (
+                <div className="text-xs text-gray-600 mt-1 truncate">
+                  "{edit.comment}"
                 </div>
               )}
             </div>
+            <svg 
+              className={`w-4 h-4 text-gray-500 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
-          {edit.comment && (
-            <div className="text-sm text-gray-700 mt-2 italic">
-              "{edit.comment}"
-            </div>
-          )}
-        </div>
+        </button>
 
-        {/* Show actual edit content based on what we have */}
-        <div className="bg-white">
-          {/* First, try structured diff content */}
-          {edit.diff_content && edit.diff_content.length > 0 ? (
-            <div>
-              {edit.diff_content.map((section, sectionIndex) => (
-                <div key={sectionIndex}>
-                  {section.context_before && section.context_before.map((line, lineIndex) => (
-                    <div key={`before-${lineIndex}`}>
-                      {renderDiffLine(line, 'context')}
-                    </div>
-                  ))}
-                  
-                  {section.removed && section.removed.map((line, lineIndex) => (
-                    <div key={`removed-${lineIndex}`}>
-                      {renderDiffLine(line, 'removed')}
-                    </div>
-                  ))}
-                  
-                  {section.added && section.added.map((line, lineIndex) => (
-                    <div key={`added-${lineIndex}`}>
-                      {renderDiffLine(line, 'added')}
-                    </div>
-                  ))}
-                  
-                  {section.context_after && section.context_after.map((line, lineIndex) => (
-                    <div key={`after-${lineIndex}`}>
-                      {renderDiffLine(line, 'context')}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          ) : 
-          /* Try legacy format with separate arrays */
-          (edit.unchanged || edit.deletions || edit.additions) ? (
-            <div>
-              {edit.unchanged && edit.unchanged.map((line, index) => (
-                <div key={`unchanged-${index}`}>
-                  {renderDiffLine(line, 'context')}
-                </div>
-              ))}
-              
-              {edit.deletions && edit.deletions.map((line, index) => (
-                <div key={`deletion-${index}`}>
-                  {renderDiffLine(line, 'removed')}
-                </div>
-              ))}
-              
-              {edit.additions && edit.additions.map((line, index) => (
-                <div key={`addition-${index}`}>
-                  {renderDiffLine(line, 'added')}
-                </div>
-              ))}
-            </div>
-          ) : 
-          /* Try raw diff text if available */
-          edit.diff ? (
-            <div className="p-4">
-              <div className="text-xs font-medium text-gray-700 mb-2">Raw Diff:</div>
-              <pre className="bg-gray-50 p-3 rounded text-xs overflow-x-auto font-mono whitespace-pre-wrap">
-                {edit.diff}
-              </pre>
-            </div>
-          ) : 
-          /* Try any text content available */
-          edit.text || edit.content ? (
-            <div className="p-4">
-              <div className="text-xs font-medium text-gray-700 mb-2">Edit Content:</div>
-              <div className="bg-blue-50 border-l-4 border-blue-400 p-3">
-                <div className="text-sm text-blue-800 font-mono whitespace-pre-wrap">
-                  {edit.text || edit.content}
+        {/* Expandable Edit Details */}
+        {isExpanded && (
+          <div className="px-4 pb-4 border-t border-gray-100 bg-gray-50">
+            <div className="mt-3 space-y-3">
+              {/* Edit Summary */}
+              <div className="bg-white rounded p-3 border">
+                <div className="text-xs font-medium text-gray-700 mb-2">Edit Summary:</div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-gray-600">Revision ID:</span>
+                    <span className="ml-2 font-mono">{edit.revid || 'N/A'}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Size Change:</span>
+                    <span className={`ml-2 font-medium ${
+                      edit.size_change > 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {edit.size_change ? `${edit.size_change > 0 ? '+' : ''}${edit.size_change} bytes` : 'N/A'}
+                    </span>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-gray-600">Comment:</span>
+                    <span className="ml-2">{edit.comment || 'No edit summary'}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) :
-          /* Show all available edit properties */
-          (
-            <div className="p-4">
-              <div className="text-sm font-medium text-gray-700 mb-3">Available Edit Data:</div>
-              <div className="bg-gray-50 rounded p-3">
-                <div className="grid grid-cols-1 gap-2 text-xs">
-                  {Object.entries(edit).map(([key, value]) => (
-                    key !== 'timestamp' && key !== 'comment' && key !== 'revid' && key !== 'size_change' && (
-                      <div key={key} className="flex">
-                        <span className="font-medium text-gray-600 w-24 flex-shrink-0">{key}:</span>
-                        <span className="text-gray-800 break-words">
-                          {typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value)}
-                        </span>
+
+              {/* Diff Content */}
+              {(edit.additions || edit.deletions || edit.unchanged) ? (
+                <div className="bg-white rounded border">
+                  <div className="p-3 border-b bg-gray-50">
+                    <div className="text-xs font-medium text-gray-700">Content Changes:</div>
+                  </div>
+                  <div className="max-h-48 overflow-y-auto">
+                    {edit.unchanged && edit.unchanged.map((line, index) => (
+                      <div key={`unchanged-${index}`} className="px-3 py-1 text-xs font-mono text-gray-600 border-l-2 border-gray-300">
+                        <span className="text-gray-400 mr-2"> </span>{line}
                       </div>
-                    )
-                  ))}
+                    ))}
+                    
+                    {edit.deletions && edit.deletions.map((line, index) => (
+                      <div key={`deletion-${index}`} className="px-3 py-1 text-xs font-mono bg-red-50 text-red-800 border-l-2 border-red-400">
+                        <span className="text-red-600 mr-2">−</span>{line}
+                      </div>
+                    ))}
+                    
+                    {edit.additions && edit.additions.map((line, index) => (
+                      <div key={`addition-${index}`} className="px-3 py-1 text-xs font-mono bg-green-50 text-green-800 border-l-2 border-green-400">
+                        <span className="text-green-600 mr-2">+</span>{line}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-              
-              {/* Raw object dump for debugging */}
-              <details className="mt-3">
-                <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700">
-                  Show raw edit object
+              ) : (
+                <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+                  <div className="text-xs text-yellow-700">
+                    <div className="font-medium mb-1">No diff data available</div>
+                    <div>This edit may not have detailed change information from the API.</div>
+                  </div>
+                </div>
+              )}
+
+              {/* Raw Edit Data (Collapsible) */}
+              <details className="bg-white rounded border">
+                <summary className="p-3 cursor-pointer text-xs font-medium text-gray-700 hover:bg-gray-50">
+                  Raw Edit Data
                 </summary>
-                <pre className="mt-2 bg-yellow-50 p-2 rounded text-xs overflow-x-auto">
-                  {JSON.stringify(edit, null, 2)}
-                </pre>
+                <div className="px-3 pb-3 border-t bg-gray-50">
+                  <pre className="text-xs overflow-x-auto font-mono mt-2 p-2 bg-white rounded border">
+                    {JSON.stringify(edit, null, 2)}
+                  </pre>
+                </div>
               </details>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -430,56 +333,6 @@ const UserAccountAnalysis = ({ title }) => {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Debug Panel - Enhanced to show duplicate detection */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="text-sm font-medium text-yellow-800 mb-2">Debug Information and Duplicate Detection:</div>
-          <div className="text-xs text-yellow-700 space-y-1">
-            <div>Total Users Loaded: {accountData.newUsers.length + accountData.blockedUsers.length}</div>
-            <div>User Edits Cached: {Object.keys(userEdits).length}</div>
-            <div>API Title: {title}</div>
-            
-            {/* Check for duplicate edits across users */}
-            {Object.keys(userEdits).length > 1 && (
-              <div className="mt-3 p-2 bg-yellow-100 rounded">
-                <div className="font-medium text-yellow-800 mb-1">Duplicate Edit Analysis:</div>
-                {(() => {
-                  const signatures = {};
-                  const duplicates = [];
-                  
-                  Object.entries(userEdits).forEach(([username, data]) => {
-                    if (data.edits && data.edits.length > 0) {
-                      const signature = JSON.stringify(data.edits.map(edit => ({
-                        revid: edit.revid,
-                        timestamp: edit.timestamp,
-                        size_change: edit.size_change
-                      })));
-                      
-                      if (signatures[signature]) {
-                        duplicates.push(`${username} has identical edits to ${signatures[signature]}`);
-                      } else {
-                        signatures[signature] = username;
-                      }
-                    }
-                  });
-                  
-                  return duplicates.length > 0 ? (
-                    <div className="space-y-1">
-                      <div className="text-red-600 font-medium">DUPLICATES FOUND:</div>
-                      {duplicates.map((duplicate, idx) => (
-                        <div key={idx} className="text-red-700 text-xs">{duplicate}</div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-green-600">No duplicate edits detected</div>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       {/* Summary Statistics */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-slate-50 rounded-lg p-4 text-center">
@@ -523,103 +376,127 @@ const UserAccountAnalysis = ({ title }) => {
           
           {expandedSections.newUsers && (
             <div className="px-4 pb-4">
-              {/* Show only first 10 users, with option to show more */}
               <div className="space-y-2">
-                {accountData.newUsers.slice(0, 10).map((user, index) => (
-                <div key={`new-user-${index}-${user.username}`} className="bg-white rounded border border-red-200">
-                  <button
-                    onClick={() => handleUserClick(user.username)}
-                    className="w-full p-3 text-left hover:bg-red-25 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex flex-col">
-                        <span className="font-medium text-red-800">{user.username}</span>
-                        <span className="text-xs text-red-600">Created {formatCreationDate(user.accountAge)}</span>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="text-right mr-2">
-                          <div className="text-sm font-medium text-red-700">{user.editCount} edits</div>
-                          <div className="text-xs text-red-500">{getAccountAgeLabel(user.accountAge)}</div>
+                {accountData.newUsers.slice(0, showMoreStates.newUsers).map((user, index) => (
+                  <div key={`new-user-${index}-${user.username}`} className="bg-white rounded border border-red-200">
+                    <button
+                      onClick={() => handleUserClick(user.username)}
+                      className="w-full p-3 text-left hover:bg-red-25 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col">
+                          <span className="font-medium text-red-800">{user.username}</span>
+                          <span className="text-xs text-red-600">Created {formatCreationDate(user.accountAge)}</span>
                         </div>
-                        <svg 
-                          className={`w-4 h-4 text-red-600 transform transition-transform ${expandedUsers[user.username] ? 'rotate-180' : ''}`}
-                          fill="none" 
-                          stroke="currentColor" 
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
+                        <div className="flex items-center">
+                          <div className="text-right mr-2">
+                            <div className="text-sm font-medium text-red-700">{user.editCount} edits</div>
+                            <div className="text-xs text-red-500">{getAccountAgeLabel(user.accountAge)}</div>
+                          </div>
+                          <svg 
+                            className={`w-4 h-4 text-red-600 transform transition-transform ${expandedUsers[user.username] ? 'rotate-180' : ''}`}
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                  
-                  {expandedUsers[user.username] && userEdits[user.username] && (
-                    <div className="px-4 pb-4 border-t border-red-100 bg-red-25">
-                      <div className="mt-4 space-y-4">
-                        <div className="bg-white rounded-lg border border-red-200 p-4">
-                          <div className="text-sm font-medium text-red-800 mb-3">User Summary:</div>
-                          <div className="grid grid-cols-2 gap-4 text-xs">
-                            <div>
-                              <div className="text-red-600 font-medium">Total Edits:</div>
-                              <div className="text-red-800">{userEdits[user.username].totalEdits || 0}</div>
-                            </div>
-                            <div>
-                              <div className="text-red-600 font-medium">Account Age:</div>
-                              <div className="text-red-800">{getAccountAgeLabel(user.accountAge)}</div>
-                            </div>
-                            {userEdits[user.username].lastEdit && (
-                              <div className="col-span-2">
-                                <div className="text-red-600 font-medium">Last Edit:</div>
-                                <div className="text-red-800">{formatTimestamp(userEdits[user.username].lastEdit)}</div>
+                    </button>
+                    
+                    {expandedUsers[user.username] && userEdits[user.username] && (
+                      <div className="px-4 pb-4 border-t border-red-100 bg-red-25">
+                        <div className="mt-4 space-y-4">
+                          {/* User Summary */}
+                          <div className="bg-white rounded-lg border border-red-200 p-4">
+                            <div className="text-sm font-medium text-red-800 mb-3">User Summary:</div>
+                            <div className="grid grid-cols-2 gap-4 text-xs">
+                              <div>
+                                <div className="text-red-600 font-medium">Total Edits:</div>
+                                <div className="text-red-800">{userEdits[user.username].totalEdits || 0}</div>
                               </div>
-                            )}
+                              <div>
+                                <div className="text-red-600 font-medium">Account Age:</div>
+                                <div className="text-red-800">{getAccountAgeLabel(user.accountAge)}</div>
+                              </div>
+                            </div>
                           </div>
+                          
+                          {/* Edits Section with Improved Organization */}
+                          {userEdits[user.username].edits && userEdits[user.username].edits.length > 0 ? (
+                            <div>
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="text-sm font-medium text-red-800">
+                                  Recent Edits ({userEdits[user.username].edits.length} total)
+                                </div>
+                                {userEdits[user.username].edits.length > 3 && (
+                                  <button
+                                    onClick={() => toggleShowAllEdits(user.username)}
+                                    className="text-xs text-red-600 hover:text-red-800 font-medium"
+                                  >
+                                    {showAllEdits[user.username] 
+                                      ? 'Show Less' 
+                                      : `Show All ${userEdits[user.username].edits.length} Edits`
+                                    }
+                                  </button>
+                                )}
+                              </div>
+                              
+                              {/* Show first 3 edits or all if expanded */}
+                              <div className="space-y-2">
+                                {(showAllEdits[user.username] 
+                                  ? userEdits[user.username].edits 
+                                  : userEdits[user.username].edits.slice(0, 3)
+                                ).map((edit, editIndex) => (
+                                  <CompactEditRenderer 
+                                    key={`edit-${editIndex}`}
+                                    edit={edit} 
+                                    editIndex={editIndex} 
+                                    username={user.username}
+                                    title={title} 
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="bg-white rounded-lg border border-red-200 p-6 text-center">
+                              <div className="text-red-600 text-sm">
+                                {userEdits[user.username].error 
+                                  ? "Failed to load edit details - API error" 
+                                  : "No detailed edit information available"}
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        
-                        <div className="text-sm font-medium text-red-800 mb-3">Recent Edits:</div>
-                        
-                        {/* Improved Edit Diffs */}
-                        {userEdits[user.username].edits && userEdits[user.username].edits.length > 0 ? (
-                          userEdits[user.username].edits.map((edit, editIndex) => (
-                            <DiffRenderer 
-                              key={`edit-${editIndex}`}
-                              edit={edit} 
-                              editIndex={editIndex} 
-                              title={title} 
-                            />
-                          ))
-                        ) : (
-                          <div className="bg-white rounded-lg border border-red-200 p-6 text-center">
-                            <div className="text-red-600 text-sm">
-                              {userEdits[user.username].error 
-                                ? "Failed to load edit details - API error" 
-                                : "No detailed edit information available"}
-                            </div>
-                            <div className="text-red-500 text-xs mt-1">
-                              Check API response or user permissions
-                            </div>
-                          </div>
-                        )}
                       </div>
-                    </div>
-                  )}
-                  
-                  {expandedUsers[user.username] && loadingUsers[user.username] && (
-                    <div className="px-3 pb-3 border-t border-red-100">
-                      <div className="text-xs text-red-600 mt-2 flex items-center justify-center py-4">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600 mr-2"></div>
-                        Loading edit details for {user.username}...
+                    )}
+                    
+                    {expandedUsers[user.username] && loadingUsers[user.username] && (
+                      <div className="px-3 pb-3 border-t border-red-100">
+                        <div className="text-xs text-red-600 mt-2 flex items-center justify-center py-4">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600 mr-2"></div>
+                          Loading edit details for {user.username}...
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
                 ))}
               
-                {/* Show more button for account ages */}
-                {accountData.accountAges.length > 12 && (
-                  <div className="mt-4 text-center">
-                    <button className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm hover:bg-slate-200 transition-colors">
-                      Show {accountData.accountAges.length - 12} more editors...
+                {/* Show More Controls - FIXED */}
+                {showMoreStates.newUsers < accountData.newUsers.length && (
+                  <div className="mt-4 text-center space-y-2">
+                    <button 
+                      onClick={() => handleShowMore('newUsers')}
+                      className="px-4 py-2 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200 transition-colors mr-2"
+                    >
+                      Show {Math.min(10, accountData.newUsers.length - showMoreStates.newUsers)} More Users
+                    </button>
+                    <button 
+                      onClick={() => handleShowAll('newUsers')}
+                      className="px-4 py-2 bg-red-200 text-red-800 rounded-lg text-sm hover:bg-red-300 transition-colors"
+                    >
+                      Show All {accountData.newUsers.length - showMoreStates.newUsers} Remaining Users
                     </button>
                   </div>
                 )}
@@ -629,7 +506,7 @@ const UserAccountAnalysis = ({ title }) => {
         </div>
       )}
 
-      {/* Blocked Users - Similar improvements */}
+      {/* Blocked Users - Similar structure */}
       {accountData.blockedUsers.length > 0 && (
         <div className="bg-slate-50 border border-slate-200 rounded-lg">
           <button
@@ -651,85 +528,128 @@ const UserAccountAnalysis = ({ title }) => {
           </button>
           
           {expandedSections.blockedUsers && (
-            <div className="px-4 pb-4 space-y-2">
-              {accountData.blockedUsers.map((user, index) => (
-                <div key={`blocked-user-${index}-${user.username}`} className="bg-white rounded border border-slate-200">
-                  <button
-                    onClick={() => handleUserClick(user.username)}
-                    className="w-full p-3 text-left hover:bg-slate-50 transition-colors"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <span className="font-medium text-slate-800">{user.username}</span>
-                        <span className="ml-2 px-2 py-1 bg-slate-200 text-slate-700 rounded text-xs">
-                          Blocked
-                        </span>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="text-sm text-slate-600 mr-2">{user.editCount} edits</span>
-                        <svg 
-                          className={`w-4 h-4 text-slate-600 transform transition-transform ${expandedUsers[user.username] ? 'rotate-180' : ''}`}
-                          fill="none" 
-                          stroke="currentColor" 
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </button>
-                  
-                  {expandedUsers[user.username] && userEdits[user.username] && (
-                    <div className="px-4 pb-4 border-t border-slate-100 bg-slate-25">
-                      <div className="mt-4 space-y-4">
-                        <div className="bg-white rounded-lg border border-slate-200 p-4">
-                          <div className="text-sm font-medium text-slate-800 mb-3">User Summary:</div>
-                          <div className="grid grid-cols-2 gap-4 text-xs">
-                            <div>
-                              <div className="text-slate-600 font-medium">Total Edits:</div>
-                              <div className="text-slate-800">{userEdits[user.username].totalEdits || 0}</div>
-                            </div>
-                            <div>
-                              <div className="text-slate-600 font-medium">Status:</div>
-                              <div className="text-red-600 font-medium">Currently Blocked</div>
-                            </div>
-                          </div>
+            <div className="px-4 pb-4">
+              <div className="space-y-2">
+                {accountData.blockedUsers.slice(0, showMoreStates.blockedUsers).map((user, index) => (
+                  <div key={`blocked-user-${index}-${user.username}`} className="bg-white rounded border border-slate-200">
+                    <button
+                      onClick={() => handleUserClick(user.username)}
+                      className="w-full p-3 text-left hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center">
+                          <span className="font-medium text-slate-800">{user.username}</span>
+                          <span className="ml-2 px-2 py-1 bg-slate-200 text-slate-700 rounded text-xs">
+                            Blocked
+                          </span>
                         </div>
-                        
-                        <div className="text-sm font-medium text-slate-800 mb-3">Recent Edits:</div>
-                        
-                        {userEdits[user.username].edits && userEdits[user.username].edits.length > 0 ? (
-                          userEdits[user.username].edits.map((edit, editIndex) => (
-                            <DiffRenderer 
-                              key={`blocked-edit-${editIndex}`}
-                              edit={edit} 
-                              editIndex={editIndex} 
-                              title={title} 
-                            />
-                          ))
-                        ) : (
-                          <div className="bg-white rounded-lg border border-slate-200 p-6 text-center">
-                            <div className="text-slate-600 text-sm">
-                              {userEdits[user.username].error 
-                                ? "Failed to load edit details - API error" 
-                                : "No detailed edit information available"}
+                        <div className="flex items-center">
+                          <span className="text-sm text-slate-600 mr-2">{user.editCount} edits</span>
+                          <svg 
+                            className={`w-4 h-4 text-slate-600 transform transition-transform ${expandedUsers[user.username] ? 'rotate-180' : ''}`}
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </div>
+                      </div>
+                    </button>
+                    
+                    {expandedUsers[user.username] && userEdits[user.username] && (
+                      <div className="px-4 pb-4 border-t border-slate-100 bg-slate-25">
+                        <div className="mt-4 space-y-4">
+                          <div className="bg-white rounded-lg border border-slate-200 p-4">
+                            <div className="text-sm font-medium text-slate-800 mb-3">User Summary:</div>
+                            <div className="grid grid-cols-2 gap-4 text-xs">
+                              <div>
+                                <div className="text-slate-600 font-medium">Total Edits:</div>
+                                <div className="text-slate-800">{userEdits[user.username].totalEdits || 0}</div>
+                              </div>
+                              <div>
+                                <div className="text-slate-600 font-medium">Status:</div>
+                                <div className="text-red-600 font-medium">Currently Blocked</div>
+                              </div>
                             </div>
                           </div>
-                        )}
+                          
+                          {userEdits[user.username].edits && userEdits[user.username].edits.length > 0 ? (
+                            <div>
+                              <div className="flex items-center justify-between mb-3">
+                                <div className="text-sm font-medium text-slate-800">
+                                  Recent Edits ({userEdits[user.username].edits.length} total)
+                                </div>
+                                {userEdits[user.username].edits.length > 3 && (
+                                  <button
+                                    onClick={() => toggleShowAllEdits(user.username)}
+                                    className="text-xs text-slate-600 hover:text-slate-800 font-medium"
+                                  >
+                                    {showAllEdits[user.username] 
+                                      ? 'Show Less' 
+                                      : `Show All ${userEdits[user.username].edits.length} Edits`
+                                    }
+                                  </button>
+                                )}
+                              </div>
+                              
+                              <div className="space-y-2">
+                                {(showAllEdits[user.username] 
+                                  ? userEdits[user.username].edits 
+                                  : userEdits[user.username].edits.slice(0, 3)
+                                ).map((edit, editIndex) => (
+                                  <CompactEditRenderer 
+                                    key={`blocked-edit-${editIndex}`}
+                                    edit={edit} 
+                                    editIndex={editIndex} 
+                                    username={user.username}
+                                    title={title} 
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="bg-white rounded-lg border border-slate-200 p-6 text-center">
+                              <div className="text-slate-600 text-sm">
+                                {userEdits[user.username].error 
+                                  ? "Failed to load edit details - API error" 
+                                  : "No detailed edit information available"}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  
-                  {expandedUsers[user.username] && loadingUsers[user.username] && (
-                    <div className="px-3 pb-3 border-t border-slate-100">
-                      <div className="text-xs text-slate-600 mt-2 flex items-center justify-center py-4">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-600 mr-2"></div>
-                        Loading edit details for {user.username}...
+                    )}
+                    
+                    {expandedUsers[user.username] && loadingUsers[user.username] && (
+                      <div className="px-3 pb-3 border-t border-slate-100">
+                        <div className="text-xs text-slate-600 mt-2 flex items-center justify-center py-4">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-slate-600 mr-2"></div>
+                          Loading edit details for {user.username}...
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                ))}
+              
+                {/* Show More Controls for Blocked Users */}
+                {showMoreStates.blockedUsers < accountData.blockedUsers.length && (
+                  <div className="mt-4 text-center space-y-2">
+                    <button 
+                      onClick={() => handleShowMore('blockedUsers')}
+                      className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm hover:bg-slate-200 transition-colors mr-2"
+                    >
+                      Show {Math.min(10, accountData.blockedUsers.length - showMoreStates.blockedUsers)} More Users
+                    </button>
+                    <button 
+                      onClick={() => handleShowAll('blockedUsers')}
+                      className="px-4 py-2 bg-slate-200 text-slate-800 rounded-lg text-sm hover:bg-slate-300 transition-colors"
+                    >
+                      Show All {accountData.blockedUsers.length - showMoreStates.blockedUsers} Remaining Users
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -756,21 +676,41 @@ const UserAccountAnalysis = ({ title }) => {
         </button>
         
         {expandedSections.accountAges && (
-          <div className="px-4 pb-4 space-y-2">
-            {accountData.accountAges.slice(0, 8).map((user, index) => (
-              <div key={`age-user-${index}-${user.username}`} className="bg-slate-50 rounded p-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="font-medium text-slate-700">{user.username}</span>
-                    <span className="text-xs text-slate-500">Created {formatCreationDate(user.accountAge)}</span>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm text-slate-600">{getAccountAgeLabel(user.accountAge)}</div>
-                    <div className="text-xs text-slate-500">{user.editCount} edits</div>
+          <div className="px-4 pb-4">
+            <div className="space-y-2">
+              {accountData.accountAges.slice(0, showMoreStates.accountAges).map((user, index) => (
+                <div key={`age-user-${index}-${user.username}`} className="bg-slate-50 rounded p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="font-medium text-slate-700">{user.username}</span>
+                      <span className="text-xs text-slate-500">Created {formatCreationDate(user.accountAge)}</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm text-slate-600">{getAccountAgeLabel(user.accountAge)}</div>
+                      <div className="text-xs text-slate-500">{user.editCount} edits</div>
+                    </div>
                   </div>
                 </div>
+              ))}
+            </div>
+            
+            {/* Show More Controls for Account Ages */}
+            {showMoreStates.accountAges < accountData.accountAges.length && (
+              <div className="mt-4 text-center space-y-2">
+                <button 
+                  onClick={() => handleShowMore('accountAges')}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg text-sm hover:bg-slate-200 transition-colors mr-2"
+                >
+                  Show {Math.min(10, accountData.accountAges.length - showMoreStates.accountAges)} More Editors
+                </button>
+                <button 
+                  onClick={() => handleShowAll('accountAges')}
+                  className="px-4 py-2 bg-slate-200 text-slate-800 rounded-lg text-sm hover:bg-slate-300 transition-colors"
+                >
+                  Show All {accountData.accountAges.length - showMoreStates.accountAges} Remaining Editors
+                </button>
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>
