@@ -3,8 +3,53 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.2, maximum-scale=2.0, user-scalable=yes" />
     <title>WikiDash</title>
+    <style>
+      /* Base zoom and sizing improvements */
+      html {
+        font-size: 18px; /* Increased from default 16px */
+        zoom: 1.1; /* Slight zoom increase */
+      }
+      
+      body {
+        font-size: 1rem;
+        line-height: 1.6;
+        min-height: 100vh;
+      }
+      
+      /* Ensure better readability on all screen sizes */
+      @media (max-width: 768px) {
+        html {
+          font-size: 16px;
+          zoom: 1.0;
+        }
+      }
+      
+      @media (min-width: 1200px) {
+        html {
+          font-size: 19px;
+          zoom: 1.15;
+        }
+      }
+      
+      /* Improve text readability */
+      * {
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      
+      /* Make sure buttons and interactive elements are larger */
+      button, input, select, textarea {
+        font-size: inherit;
+        min-height: 44px; /* Better touch targets */
+      }
+      
+      /* Improve spacing for better visual hierarchy */
+      .container {
+        max-width: 1400px; /* Slightly wider containers */
+      }
+    </style>
   </head>
   <body class="bg-gray-100 text-gray-900">
     <div id="root"></div>
